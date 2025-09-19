@@ -45,10 +45,15 @@
         <div class="row mb-4">
             <div class="col-md-3">
                 <div class="stats-card bg-primary">
+                    <!-- 
+                TODO:
+                - Fetch total number of tasks from backend (e.g., GET /api/tasks/count or /api/tasks).
+                - Display the total count dynamically here.
+            -->
                     <div class="d-flex justify-content-between">
                         <div>
                             <h5>Total Tasks</h5>
-                            <h2>24</h2>
+                            <h2 id="totalTasks">0</h2>
                         </div>
                         <i class="fas fa-tasks"></i>
                     </div>
@@ -56,10 +61,15 @@
             </div>
             <div class="col-md-3">
                 <div class="stats-card bg-success">
+                    <!-- 
+                TODO:
+                - Fetch number of completed tasks from backend (e.g., GET /api/tasks?status=done).
+                - Display the completed count dynamically here.
+            -->
                     <div class="d-flex justify-content-between">
                         <div>
                             <h5>Completed</h5>
-                            <h2>8</h2>
+                            <h2 id="completedTasks">0</h2>
                         </div>
                         <i class="fas fa-check-circle"></i>
                     </div>
@@ -67,10 +77,15 @@
             </div>
             <div class="col-md-3">
                 <div class="stats-card bg-warning">
+                    <!-- 
+                TODO:
+                - Fetch number of in-progress tasks from backend (e.g., GET /api/tasks?status=inprogress).
+                - Display the in-progress count dynamically here.
+            -->
                     <div class="d-flex justify-content-between">
                         <div>
                             <h5>In Progress</h5>
-                            <h2>7</h2>
+                            <h2 id="inProgressTasks">0</h2>
                         </div>
                         <i class="fas fa-spinner"></i>
                     </div>
@@ -78,10 +93,15 @@
             </div>
             <div class="col-md-3">
                 <div class="stats-card bg-danger">
+                    <!-- 
+                TODO:
+                - Fetch number of overdue tasks from backend (e.g., GET /api/tasks?overdue=true).
+                - Display the overdue count dynamically here.
+            -->
                     <div class="d-flex justify-content-between">
                         <div>
                             <h5>Overdue</h5>
-                            <h2>2</h2>
+                            <h2 id="overdueTasks">0</h2>
                         </div>
                         <i class="fas fa-exclamation-circle"></i>
                     </div>
