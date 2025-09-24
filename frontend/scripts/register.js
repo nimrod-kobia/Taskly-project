@@ -27,10 +27,20 @@ const registerForm = document.getElementById('registerForm')
 registerForm.addEventListener('submit', async (e) => {
   e.preventDefault() // stop page reload
 
+  const fullName = document.getElementById('fullName').value
   const email = document.getElementById('email').value
   const password = document.getElementById('password').value
 
-  const { data, error } = await signUp(email, password)
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      data: {
+        full_name: fullName
+      }
+    }
+  })
+
 
   if (error) {
     alert('Signup failed: ' + error.message)
