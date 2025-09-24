@@ -20,7 +20,7 @@
 
 
 
-import { signUp } from './supabase.js'
+import { supabase } from './supabase.js'
 
 const registerForm = document.getElementById('registerForm')
 
