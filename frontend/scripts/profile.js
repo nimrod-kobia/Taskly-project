@@ -56,7 +56,8 @@ async function renderProfile() {
   const { tasksCompleted, tasksPending, tasksOverTime, totalTasks } = computeTaskStats(tasks)
 
   // --- Update profile display ---
-  document.getElementById('userName').textContent = user.email // replace with display name if available
+  document.getElementById('userName').textContent = 
+  user.user_metadata?.full_name || user.email// replace with display name if available
   document.getElementById('userEmail').textContent = user.email
   document.getElementById('memberSince').textContent = new Date(user.created_at).toLocaleDateString()
   document.getElementById('tasksCompleted').textContent = tasksCompleted
@@ -66,7 +67,7 @@ async function renderProfile() {
   document.getElementById('pendingTasks').textContent = tasksPending
 
   // --- Populate account settings form ---
-  document.getElementById('fullName').value = user.email // replace with display name if available
+  document.getElementById('fullName').value = user.user_metadata?.full_name || ''// replace with display name if available
   document.getElementById('email').value = user.email
 
   // --- Render Chart.js ---
