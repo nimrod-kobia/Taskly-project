@@ -1,19 +1,25 @@
-import { signIn } from './supabase.js'
+import { supabase } from './supabase.js';
+import { setupNavbarAuth } from './main.js';
 
-const loginForm = document.getElementById('loginForm')
+const loginForm = document.getElementById('loginForm');
 
 loginForm.addEventListener('submit', async (e) => {
-  e.preventDefault()
+  e.preventDefault();
 
-  const email = document.getElementById('email').value
-  const password = document.getElementById('password').value
+  const email = document.getElementById('email').value;
+  const password = document.getElementById('password').value;
 
-  const { data, error } = await signIn(email, password)
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
-    alert(error)
+    alert('Login failed: ' + error.message);
   } else {
-    alert('Login successful!')
-    window.location.href = 'tasks.html' // redirect to tasks page
+    alert('Login successful!');
+
+    // Automatically update navbar auth buttons
+    await setupNavbarAuth();
+
+    // Redirect to tasks page
+    window.location.href = 'tasks.html';
   }
-})
+});

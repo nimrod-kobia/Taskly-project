@@ -1,34 +1,63 @@
-document.addEventListener("DOMContentLoaded", () => {
-  // Load the navbar HTML
-  fetch("components/navbar.html")
-    .then(response => response.text())
-    .then(html => {
-      document.getElementById("navbar-placeholder").innerHTML = html;
+import { supabase } from './supabase.js';
 
-      // After navbar loads, run auth logic
-      setupNavbarAuth();
-    })
-    .catch(err => console.error("Navbar load error:", err));
-});
+/**
+ * Get current logged-in user
+ */
+export async function getCurrentUser() {
+  const { data: { user }, error } = await supabase.auth.getUser();
+  if (error) console.error('Error fetching user:', error);
+  return user || null;
+}
 
-function setupNavbarAuth() {
-  const authButtons = document.getElementById("auth-buttons");
+/**
+ * Setup dynamic navbar buttons
+ */
+export async function setupNavbarAuth() {
+  const authButtons = document.getElementById('auth-buttons');
+  if (!authButtons) return;
 
-  if (!authButtons) return; // Prevent errors if element missing
+  const user = await getCurrentUser();
 
-  // Example login state (replace with real Supabase/session check)
-  const isLoggedIn = localStorage.getItem("loggedIn") === "true";
-
-  if (isLoggedIn) {
-    // Replace login/signup with logout button
+  if (user) {
+    // Logged in → show logout
     authButtons.innerHTML = `
       <button class="btn btn-danger" id="logoutBtn">Logout</button>
     `;
-
-    // Logout functionality
-    document.getElementById("logoutBtn").addEventListener("click", () => {
-      localStorage.removeItem("loggedIn");
-      window.location.href = "login.html";
+    document.getElementById('logoutBtn').addEventListener('click', async () => {
+      const { error } = await supabase.auth.signOut();
+      if (error) alert('Logout failed: ' + error.message);
+      else window.location.href = 'login.html';
     });
+  } else {
+    // Not logged in → show login/signup
+    authButtons.innerHTML = `
+      <a class="btn btn-outline-primary me-2" href="login.html">Log In</a>
+      <a class="btn btn-primary" href="register.html">Sign Up</a>
+    `;
   }
 }
+
+/**
+ * Listen to auth state changes and update navbar automatically
+ */
+function listenToAuthChanges() {
+  supabase.auth.onAuthStateChange((_event, session) => {
+    setupNavbarAuth();
+  });
+}
+
+/**
+ * Load navbar and initialize auth buttons
+ */
+document.addEventListener('DOMContentLoaded', async () => {
+  try {
+    const response = await fetch('components/navbar.html');
+    const html = await response.text();
+    document.getElementById('navbar-placeholder').innerHTML = html;
+
+    await setupNavbarAuth();  // Check login state immediately
+    listenToAuthChanges();    // Listen for future login/logout
+  } catch (err) {
+    console.error('Navbar load error:', err);
+  }
+});
