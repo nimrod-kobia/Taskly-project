@@ -35,8 +35,9 @@ async function renderProfile() {
     return;
   }
 
-  const tasksCompleted = tasks.filter(t => t.status === 'completed').length;
-  const tasksPending = tasks.filter(t => t.status === 'pending').length;
+const tasksCompleted = tasks.filter(t => t.status === 'done').length;
+const tasksPending = tasks.filter(t => ['todo', 'inprogress'].includes(t.status)).length;
+
 
   document.getElementById('tasksCompleted').textContent = tasksCompleted;
   document.getElementById('tasksPending').textContent = tasksPending;
