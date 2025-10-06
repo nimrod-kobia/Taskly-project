@@ -26,7 +26,7 @@ async function fetchTasks() {
       <td>${task.deadline ? new Date(task.deadline).toLocaleDateString() : ''}</td>
       <td>${task.urgency || ''}</td>
       <td>${task.status}</td>
-      <td>${task.effort || 0}h</td> <!-- ✅ Added effort column display -->
+      <td>${task.effort || 0}h</td> 
       <td>
         <button class="btn btn-sm btn-success me-1" data-id="${task.id}" data-action="edit">Edit</button>
         <button class="btn btn-sm btn-danger" data-id="${task.id}" data-action="delete">Delete</button>
@@ -53,7 +53,6 @@ async function handleTaskAction(e) {
     const { error } = await supabase.from('tasks').delete().eq('id', taskId);
     if (error) return alert('Error deleting task: ' + error.message);
   } else if (action === 'edit') {
-<<<<<<< HEAD
     // Populate modal with task info
     const { data: [task] } = await supabase.from('tasks').select('*').eq('id', taskId)
     if (!task) return alert('Task not found')
@@ -63,21 +62,9 @@ async function handleTaskAction(e) {
     document.getElementById('deadline').value = task.deadline ? task.deadline.split('T')[0] : ''
     document.getElementById('status').value = task.status
     document.getElementById('urgency').value = task.urgency || 'medium'
-    document.getElementById('effort').value = task.effort || 1 // ✅ Added effort to edit modal
+    document.getElementById('effort').value = task.effort || 1 
     const modal = new bootstrap.Modal(document.getElementById('taskModal'))
     modal.show()
-=======
-    const { data: [task] } = await supabase.from('tasks').select('*').eq('id', taskId);
-    if (!task) return alert('Task not found');
-    document.getElementById('taskId').value = task.id;
-    document.getElementById('title').value = task.title;
-    document.getElementById('description').value = task.description;
-    document.getElementById('deadline').value = task.deadline ? task.deadline.split('T')[0] : '';
-    document.getElementById('status').value = task.status;
-    document.getElementById('urgency').value = task.priority || 'medium';
-    const modal = new bootstrap.Modal(document.getElementById('taskModal'));
-    modal.show();
->>>>>>> 6bfc1cbe22a563a2381634303c1e6425b5072410
   }
 
   fetchTasks();
@@ -89,30 +76,20 @@ document.getElementById('taskForm').addEventListener('submit', async e => {
   const user = await getCurrentUser();
   if (!user) return;
 
-<<<<<<< HEAD
   const id = document.getElementById('taskId').value
   const title = document.getElementById('title').value
   const description = document.getElementById('description').value
   const deadline = document.getElementById('deadline').value || null
   const status = document.getElementById('status').value
   const urgency = document.getElementById('urgency').value
-  const effort = document.getElementById('effort').value || 0 // ✅ Added effort input
-=======
-  const id = document.getElementById('taskId').value;
-  const title = document.getElementById('title').value;
-  const description = document.getElementById('description').value;
-  const deadline = document.getElementById('deadline').value || null;
-  const status = document.getElementById('status').value;
-  const priority = document.getElementById('urgency').value;
->>>>>>> 6bfc1cbe22a563a2381634303c1e6425b5072410
+  const effort = document.getElementById('effort').value || 0 
 
   if (!title) return alert('Title is required');
 
   if (id) {
-<<<<<<< HEAD
     // Update task
     const { error } = await supabase.from('tasks').update({
-      title, description, deadline, status, urgency, effort // ✅ Added effort here
+      title, description, deadline, status, urgency, effort 
     }).eq('id', id)
     if (error) return alert('Error updating task: ' + error.message)
   } else {
@@ -124,16 +101,9 @@ document.getElementById('taskForm').addEventListener('submit', async e => {
       deadline,
       status,
       urgency,
-      effort // ✅ Added effort here
+      effort 
     }])
     if (error) return alert('Error creating task: ' + error.message)
-=======
-    const { error } = await supabase.from('tasks').update({ title, description, deadline, status, priority }).eq('id', id);
-    if (error) return alert('Error updating task: ' + error.message);
-  } else {
-    const { error } = await supabase.from('tasks').insert([{ user_id: user.id, title, description, deadline, status, priority }]);
-    if (error) return alert('Error creating task: ' + error.message);
->>>>>>> 6bfc1cbe22a563a2381634303c1e6425b5072410
   }
 
   document.getElementById('taskForm').reset();
