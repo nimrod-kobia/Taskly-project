@@ -32,8 +32,9 @@ async function fetchTasks() {
       <td>${task.title}</td>
       <td>${task.description || ''}</td>
       <td>${task.deadline ? new Date(task.deadline).toLocaleDateString() : ''}</td>
-      <td>${task.priority || ''}</td>
+      <td>${task.urgency || ''}</td>
       <td>${task.status}</td>
+      <td>${task.effort || 0}h</td> <!-- ✅ Added effort column display -->
       <td>
         <button class="btn btn-sm btn-success me-1" data-id="${task.id}" data-action="edit">Edit</button>
         <button class="btn btn-sm btn-danger" data-id="${task.id}" data-action="delete">Delete</button>
@@ -68,7 +69,8 @@ async function handleTaskAction(e) {
     document.getElementById('description').value = task.description
     document.getElementById('deadline').value = task.deadline ? task.deadline.split('T')[0] : ''
     document.getElementById('status').value = task.status
-    document.getElementById('urgency').value = task.priority || 'medium'
+    document.getElementById('urgency').value = task.urgency || 'medium'
+    document.getElementById('effort').value = task.effort || 1 // ✅ Added effort to edit modal
     const modal = new bootstrap.Modal(document.getElementById('taskModal'))
     modal.show()
   }
@@ -87,14 +89,15 @@ document.getElementById('taskForm').addEventListener('submit', async e => {
   const description = document.getElementById('description').value
   const deadline = document.getElementById('deadline').value || null
   const status = document.getElementById('status').value
-  const priority = document.getElementById('urgency').value
+  const urgency = document.getElementById('urgency').value
+  const effort = document.getElementById('effort').value || 0 // ✅ Added effort input
 
   if (!title) return alert('Title is required')
 
   if (id) {
     // Update task
     const { error } = await supabase.from('tasks').update({
-      title, description, deadline, status, priority
+      title, description, deadline, status, urgency, effort // ✅ Added effort here
     }).eq('id', id)
     if (error) return alert('Error updating task: ' + error.message)
   } else {
@@ -105,7 +108,8 @@ document.getElementById('taskForm').addEventListener('submit', async e => {
       description,
       deadline,
       status,
-      priority
+      urgency,
+      effort // ✅ Added effort here
     }])
     if (error) return alert('Error creating task: ' + error.message)
   }

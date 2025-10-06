@@ -20,7 +20,8 @@
     </div>
 
     <div class="d-flex flex-wrap align-items-center mb-3 gap-2">
-      <select id="viewSelect" class="form-select" style="width: auto;">
+      <label for="viewSelect" class="form-label visually-hidden">View Select</label>
+      <select id="viewSelect" class="form-select view-select-width">
         <option value="list">List view</option>
         <option value="kanban">Kanban</option>
         <option value="calendar">Calendar</option>
@@ -33,10 +34,17 @@
       <div class="table-responsive">
         <table class="table table-hover">
           <thead>
-            <tr><th>Title</th><th>Description</th><th>Deadline</th><th>Priority</th><th>Status</th><th>Actions</th></tr>
+            <tr>
+              <th>Title</th>
+              <th>Description</th>
+              <th>Deadline</th>
+              <th>Urgency</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
           </thead>
           <tbody id="taskList">
-            <!-- TODO: Fetch task list from backend (GET /api/tasks) -->
+            <!-- Populated dynamically by tasks.js -->
           </tbody>
         </table>
       </div>
@@ -87,7 +95,7 @@
           </div>
           <div class="row mt-3">
             <div class="col-md-6">
-              <label class="form-label">Priority</label>
+              <label class="form-label">Urgency</label>
               <select id="urgency" class="form-select">
                 <option value="low">Low</option>
                 <option value="medium" selected>Medium</option>
