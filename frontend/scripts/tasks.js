@@ -1,33 +1,25 @@
-import { supabase } from './supabase.js'
+import { supabase } from './supabase.js';
+import { setupNavbarAuth, getCurrentUser } from './main.js';
 
-// Get current logged-in user
-async function getCurrentUser() {
-  const { data: { user }, error } = await supabase.auth.getUser()
-  if (error || !user) {
-    console.log('Error fetching user:', error)
-    return null
-  }
-  return user
-}
-
-// Fetch tasks and render in table
 async function fetchTasks() {
-  const user = await getCurrentUser()
-  if (!user) return
+  const user = await getCurrentUser();
+  if (!user) return;
+
+  await setupNavbarAuth(); // dynamically update navbar
 
   const { data: tasks, error } = await supabase
     .from('tasks')
     .select('*')
     .eq('user_id', user.id)
-    .order('created_at', { ascending: true })
+    .order('created_at', { ascending: true });
 
-  if (error) return console.log('Error fetching tasks:', error)
+  if (error) return console.error(error);
 
-  const tbody = document.getElementById('taskList')
-  tbody.innerHTML = ''
+  const tbody = document.getElementById('taskList');
+  tbody.innerHTML = '';
 
   tasks.forEach(task => {
-    const tr = document.createElement('tr')
+    const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${task.title}</td>
       <td>${task.description || ''}</td>
@@ -39,28 +31,29 @@ async function fetchTasks() {
         <button class="btn btn-sm btn-success me-1" data-id="${task.id}" data-action="edit">Edit</button>
         <button class="btn btn-sm btn-danger" data-id="${task.id}" data-action="delete">Delete</button>
       </td>
-    `
-    tbody.appendChild(tr)
-  })
+    `;
+    tbody.appendChild(tr);
+  });
 
-  // Add button listeners
+  // Add Edit/Delete button listeners
   tbody.querySelectorAll('button').forEach(btn => {
-    btn.addEventListener('click', handleTaskAction)
-  })
+    btn.addEventListener('click', handleTaskAction);
+  });
 }
 
-// Handle Edit/Delete actions
+// Handle Edit/Delete
 async function handleTaskAction(e) {
-  const btn = e.target
-  const taskId = btn.dataset.id
-  const action = btn.dataset.action
-  const user = await getCurrentUser()
-  if (!user) return
+  const btn = e.target;
+  const taskId = btn.dataset.id;
+  const action = btn.dataset.action;
+  const user = await getCurrentUser();
+  if (!user) return;
 
   if (action === 'delete') {
-    const { error } = await supabase.from('tasks').delete().eq('id', taskId)
-    if (error) return alert('Error deleting task: ' + error.message)
+    const { error } = await supabase.from('tasks').delete().eq('id', taskId);
+    if (error) return alert('Error deleting task: ' + error.message);
   } else if (action === 'edit') {
+<<<<<<< HEAD
     // Populate modal with task info
     const { data: [task] } = await supabase.from('tasks').select('*').eq('id', taskId)
     if (!task) return alert('Task not found')
@@ -73,17 +66,30 @@ async function handleTaskAction(e) {
     document.getElementById('effort').value = task.effort || 1 // ✅ Added effort to edit modal
     const modal = new bootstrap.Modal(document.getElementById('taskModal'))
     modal.show()
+=======
+    const { data: [task] } = await supabase.from('tasks').select('*').eq('id', taskId);
+    if (!task) return alert('Task not found');
+    document.getElementById('taskId').value = task.id;
+    document.getElementById('title').value = task.title;
+    document.getElementById('description').value = task.description;
+    document.getElementById('deadline').value = task.deadline ? task.deadline.split('T')[0] : '';
+    document.getElementById('status').value = task.status;
+    document.getElementById('urgency').value = task.priority || 'medium';
+    const modal = new bootstrap.Modal(document.getElementById('taskModal'));
+    modal.show();
+>>>>>>> 6bfc1cbe22a563a2381634303c1e6425b5072410
   }
 
-  fetchTasks()
+  fetchTasks();
 }
 
-// Handle new/edit task form submission
+// Form submit for new/edit task
 document.getElementById('taskForm').addEventListener('submit', async e => {
-  e.preventDefault()
-  const user = await getCurrentUser()
-  if (!user) return
+  e.preventDefault();
+  const user = await getCurrentUser();
+  if (!user) return;
 
+<<<<<<< HEAD
   const id = document.getElementById('taskId').value
   const title = document.getElementById('title').value
   const description = document.getElementById('description').value
@@ -91,10 +97,19 @@ document.getElementById('taskForm').addEventListener('submit', async e => {
   const status = document.getElementById('status').value
   const urgency = document.getElementById('urgency').value
   const effort = document.getElementById('effort').value || 0 // ✅ Added effort input
+=======
+  const id = document.getElementById('taskId').value;
+  const title = document.getElementById('title').value;
+  const description = document.getElementById('description').value;
+  const deadline = document.getElementById('deadline').value || null;
+  const status = document.getElementById('status').value;
+  const priority = document.getElementById('urgency').value;
+>>>>>>> 6bfc1cbe22a563a2381634303c1e6425b5072410
 
-  if (!title) return alert('Title is required')
+  if (!title) return alert('Title is required');
 
   if (id) {
+<<<<<<< HEAD
     // Update task
     const { error } = await supabase.from('tasks').update({
       title, description, deadline, status, urgency, effort // ✅ Added effort here
@@ -112,16 +127,21 @@ document.getElementById('taskForm').addEventListener('submit', async e => {
       effort // ✅ Added effort here
     }])
     if (error) return alert('Error creating task: ' + error.message)
+=======
+    const { error } = await supabase.from('tasks').update({ title, description, deadline, status, priority }).eq('id', id);
+    if (error) return alert('Error updating task: ' + error.message);
+  } else {
+    const { error } = await supabase.from('tasks').insert([{ user_id: user.id, title, description, deadline, status, priority }]);
+    if (error) return alert('Error creating task: ' + error.message);
+>>>>>>> 6bfc1cbe22a563a2381634303c1e6425b5072410
   }
 
-  // Reset form and hide modal
-  document.getElementById('taskForm').reset()
-  document.getElementById('taskId').value = ''
-  const modal = bootstrap.Modal.getInstance(document.getElementById('taskModal'))
-  modal.hide()
+  document.getElementById('taskForm').reset();
+  document.getElementById('taskId').value = '';
+  bootstrap.Modal.getInstance(document.getElementById('taskModal')).hide();
 
-  fetchTasks()
-})
+  fetchTasks();
+});
 
-// Initial load
-fetchTasks()
+// Load tasks on page load
+document.addEventListener('DOMContentLoaded', fetchTasks);

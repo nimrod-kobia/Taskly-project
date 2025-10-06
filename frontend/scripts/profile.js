@@ -1,78 +1,60 @@
-import { supabase } from './supabase.js'
+import { supabase } from './supabase.js';
+import { setupNavbarAuth } from './main.js';
 
 async function getCurrentUser() {
-  const { data: { user }, error } = await supabase.auth.getUser()
-  if (error || !user) {
-    console.log('Error fetching user:', error)
-    return null
-  }
-  return user
-}
-
-async function getUserTasks(userId) {
-  const { data: tasks, error } = await supabase
-    .from('tasks')
-    .select('*')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: true })
-
-  if (error) {
-    console.log('Error fetching tasks:', error)
-    return []
-  }
-  return tasks
-}
-
-function computeTaskStats(tasks) {
-  const tasksCompleted = tasks.filter(t => t.status === 'completed').length
-  const tasksPending = tasks.filter(t => t.status === 'pending').length
-
-  // Aggregate tasks by date for chart (YYYY-MM-DD)
-  const tasksOverTimeMap = {}
-  tasks.forEach(t => {
-    const date = t.created_at.split('T')[0]
-    if (!tasksOverTimeMap[date]) tasksOverTimeMap[date] = { completed: 0, pending: 0 }
-    if (t.status === 'completed') tasksOverTimeMap[date].completed += 1
-    else if (t.status === 'pending') tasksOverTimeMap[date].pending += 1
-  })
-
-  const tasksOverTime = Object.entries(tasksOverTimeMap).map(([date, counts]) => ({
-    date,
-    completed: counts.completed,
-    pending: counts.pending
-  }))
-
-  return { tasksCompleted, tasksPending, tasksOverTime, totalTasks: tasks.length }
+  const { data: { user }, error } = await supabase.auth.getUser();
+  if (error || !user) return null;
+  return user;
 }
 
 async function renderProfile() {
-  const user = await getCurrentUser()
-  if (!user) {
-    console.log('No user logged in')
-    return
+  const user = await getCurrentUser();
+  if (!user) return;
+
+  // Update navbar dynamically
+  await setupNavbarAuth();
+
+  // User info
+  document.getElementById('userName').textContent = user.user_metadata?.full_name || user.email;
+  document.getElementById('userEmail').textContent = user.email;
+  document.getElementById('memberSince').textContent = new Date(user.created_at).toLocaleDateString();
+
+  // Account settings form
+  document.getElementById('fullName').value = user.user_metadata?.full_name || '';
+  document.getElementById('email').value = user.email;
+
+  // Fetch tasks for stats
+  const { data: tasks, error } = await supabase
+    .from('tasks')
+    .select('*')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching tasks:', error);
+    return;
   }
 
-  const tasks = await getUserTasks(user.id)
-  const { tasksCompleted, tasksPending, tasksOverTime, totalTasks } = computeTaskStats(tasks)
+  const tasksCompleted = tasks.filter(t => t.status === 'completed').length;
+  const tasksPending = tasks.filter(t => t.status === 'pending').length;
 
-  // --- Update profile display ---
-  document.getElementById('userName').textContent = 
-  user.user_metadata?.full_name || user.email// replace with display name if available
-  document.getElementById('userEmail').textContent = user.email
-  document.getElementById('memberSince').textContent = new Date(user.created_at).toLocaleDateString()
-  document.getElementById('tasksCompleted').textContent = tasksCompleted
-  document.getElementById('tasksPending').textContent = tasksPending
-  document.getElementById('totalTasks').textContent = totalTasks
-  document.getElementById('completedTasks').textContent = tasksCompleted
-  document.getElementById('pendingTasks').textContent = tasksPending
+  document.getElementById('tasksCompleted').textContent = tasksCompleted;
+  document.getElementById('tasksPending').textContent = tasksPending;
 
-  // --- Populate account settings form ---
-  document.getElementById('fullName').value = user.user_metadata?.full_name || ''// replace with display name if available
-  document.getElementById('email').value = user.email
-
-  // --- Render Chart.js ---
-  const ctx = document.getElementById('tasksChart')?.getContext('2d')
+  // Chart.js for monthly task summary
+  const ctx = document.getElementById('tasksChart')?.getContext('2d');
   if (ctx) {
+    const tasksOverTimeMap = {};
+    tasks.forEach(t => {
+      const date = t.created_at.split('T')[0];
+      if (!tasksOverTimeMap[date]) tasksOverTimeMap[date] = { completed: 0, pending: 0 };
+      t.status === 'completed' ? tasksOverTimeMap[date].completed++ : tasksOverTimeMap[date].pending++;
+    });
+
+    const tasksOverTime = Object.entries(tasksOverTimeMap).map(([date, counts]) => ({
+      date, completed: counts.completed, pending: counts.pending
+    }));
+
     new Chart(ctx, {
       type: 'bar',
       data: {
@@ -82,58 +64,43 @@ async function renderProfile() {
           { label: 'Pending', data: tasksOverTime.map(t => t.pending), backgroundColor: 'rgba(220,53,69,0.8)' }
         ]
       },
-      options: {
-        responsive: true,
-        plugins: {
-          legend: { position: 'top' },
-          title: { display: true, text: 'Tasks Overview' }
-        },
-        scales: {
-          x: { stacked: true },
-          y: { stacked: true, beginAtZero: true }
-        }
-      }
-    })
+      options: { responsive: true, plugins: { legend: { position: 'top' }, title: { display: true, text: 'Tasks Overview' } },
+                 scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } } }
+    });
   }
 }
 
-// Run render on page load
-renderProfile()
-
-
-
 // Handle account settings form submission
-const accountForm = document.getElementById('accountSettingsForm')
-accountForm?.addEventListener('submit', async (e) => {
-  e.preventDefault()
+document.getElementById('accountSettingsForm')?.addEventListener('submit', async e => {
+  e.preventDefault();
+  const user = await getCurrentUser();
+  if (!user) return;
 
-  const fullName = document.getElementById('fullName').value
-  const email = document.getElementById('email').value
-  const password = document.getElementById('password').value
-
-  const user = await getCurrentUser()
-  if (!user) return
+  const fullName = document.getElementById('fullName').value;
+  const email = document.getElementById('email').value;
+  const password = document.getElementById('password').value;
 
   // Update email
   if (email && email !== user.email) {
-    const { error: emailError } = await supabase.auth.updateUser({ email })
-    if (emailError) return alert('Error updating email: ' + emailError.message)
+    const { error } = await supabase.auth.updateUser({ email });
+    if (error) return alert('Error updating email: ' + error.message);
   }
 
   // Update password
   if (password) {
-    const { error: passError } = await supabase.auth.updateUser({ password })
-    if (passError) return alert('Error updating password: ' + passError.message)
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) return alert('Error updating password: ' + error.message);
   }
 
-  // Update full name (metadata)
+  // Update full name metadata
   if (fullName) {
-    const { error: metaError } = await supabase.auth.updateUser({ data: { full_name: fullName } })
-    if (metaError) return alert('Error updating name: ' + metaError.message)
+    const { error } = await supabase.auth.updateUser({ data: { full_name: fullName } });
+    if (error) return alert('Error updating name: ' + error.message);
   }
 
-  alert('Account updated successfully!')
-  // Optionally, re-render profile to reflect changes
-  renderProfile()
-})
+  alert('Account updated successfully!');
+  renderProfile(); // re-render profile after changes
+});
 
+// Run on page load
+document.addEventListener('DOMContentLoaded', renderProfile);
