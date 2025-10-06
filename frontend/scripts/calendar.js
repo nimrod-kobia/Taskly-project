@@ -16,9 +16,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
 
+  // Fetch tasks
   const { data: tasks, error } = await supabase
     .from('tasks')
-    .select('id, title, status, deadline, created_at')
+    .select('id, title, status, deadline, created_at, urgency')
     .eq('user_id', user.id);
 
   if (error) {
@@ -26,13 +27,28 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
 
+  // Urgency colors
+  const getUrgencyColor = (urgency) => {
+    switch (urgency) {
+      case 'high':
+      case 3: return '#dc3545'; // 🔴 High
+      case 'medium':
+      case 2: return '#ffc107'; // 🟡 Medium
+      case 'low':
+      case 1: return '#198754'; // 🟢 Low
+      default: return '#6c757d'; // ⚪ None
+    }
+  };
+
+  // Map to FullCalendar event format
   const events = (tasks || []).map(t => ({
     id: t.id,
     title: `${t.title} (${t.status || 'pending'})`,
     start: t.deadline || t.created_at,
-    color: t.status === 'completed' ? '#28a745' : '#ffc107'
+    color: getUrgencyColor(t.urgency)
   }));
 
+  // ✅ Initialize FullCalendar (global version)
   const calendarEl = document.getElementById('calendar');
   const calendar = new FullCalendar.Calendar(calendarEl, {
     initialView: 'dayGridMonth',
