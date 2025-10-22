@@ -19,13 +19,18 @@
         <form id="loginForm">
           <div class="mb-3">
             <label for="email" class="form-label">Email address</label>
-            <input type="email" class="form-control" id="email" placeholder="Enter email" required>
+            <input type="email" class="form-control" id="email" placeholder="Enter email" required autocomplete="email">
           </div>
           <div class="mb-3">
             <label for="password" class="form-label">Password</label>
-            <input type="password" class="form-control" id="password" placeholder="Password" required>
+            <input type="password" class="form-control" id="password" placeholder="Password" required autocomplete="current-password">
+          </div>
+          <div class="mb-3 form-check">
+            <input type="checkbox" class="form-check-input" id="rememberMe">
+            <label class="form-check-label" for="rememberMe">Remember me</label>
           </div>
           <button type="submit" class="btn btn-primary w-100">Log In</button>
+          <div id="errorMsg" class="mt-2"></div>
         </form>
         <p class="mt-3 text-center">Don't have an account? <a href="register.html">Sign Up</a></p>
         <p class="text-center"><a href="forgot-password.html">Forgot Password?</a></p>
@@ -43,20 +48,42 @@
     import { supabase } from './scripts/supabase.js';
 
     const loginForm = document.getElementById('loginForm');
+    const errorMsg = document.getElementById('errorMsg');
+    const rememberMe = document.getElementById('rememberMe');
+    const loginBtn = loginForm.querySelector('button');
 
+    // Redirect logged-in users away from login page
+    window.addEventListener('DOMContentLoaded', async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        window.location.href = 'tasks.html';
+      }
+    });
+
+    //  Handle login
     loginForm.addEventListener('submit', async (e) => {
       e.preventDefault();
+      errorMsg.innerHTML = '';
+      loginBtn.disabled = true;
+      loginBtn.textContent = 'Logging in...';
 
-      const email = document.getElementById('email').value;
-      const password = document.getElementById('password').value;
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value.trim();
+
+      //  Set session persistence based on Remember Me
+      await supabase.auth.setSession(null); // clear old
+      await supabase.auth.setPersistence(
+        rememberMe.checked ? 'local' : 'session'
+      );
 
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
       if (error) {
-        alert('Login failed: ' + error.message);
+        errorMsg.innerHTML = `<div class="alert alert-danger">${error.message}</div>`;
+        loginBtn.disabled = false;
+        loginBtn.textContent = 'Log In';
       } else {
-        alert('Login successful!');
-        console.log('User session:', data);
+        //  Login success
         localStorage.setItem('loggedIn', 'true');
         window.location.href = 'tasks.html';
       }
