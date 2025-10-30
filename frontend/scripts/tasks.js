@@ -1,127 +1,201 @@
-import { supabase } from './supabase.js'
+document.addEventListener('DOMContentLoaded', () => {
 
-// Get current logged-in user
-async function getCurrentUser() {
-  const { data: { user }, error } = await supabase.auth.getUser()
-  if (error || !user) {
-    console.log('Error fetching user:', error)
-    return null
+  // === AUTH HELPERS ===
+  const getToken = () => localStorage.getItem('jwt');
+  const getCurrentUser = () => {
+    const token = getToken();
+    if (!token) return null;
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      if (payload.exp && payload.exp * 1000 < Date.now()) {
+        logout();
+        return null;
+      }
+      return payload;
+    } catch {
+      logout();
+      return null;
+    }
+  };
+
+  const logout = () => {
+    localStorage.removeItem('jwt');
+    localStorage.removeItem('user');
+    window.location.replace('login.html');
+  };
+
+  // === TASKS ARRAY ===
+  let tasks = [];
+
+  // === FETCH TASKS ===
+  const fetchTasks = async () => {
+    const user = getCurrentUser();
+    if (!user) return;
+
+    try {
+      const res = await fetch('/Backend/tasks/get_tasks.php', {
+        headers: { 'Authorization': `Bearer ${getToken()}` }
+      });
+      const data = await res.json();
+      tasks = Array.isArray(data.tasks) ? data.tasks : Object.values(data.tasks);
+
+      if (!res.ok) {
+        console.error('Fetch tasks error:', data);
+        return;
+      }
+
+      renderTasks(tasks);
+      if (window.profileRefresh) window.profileRefresh();
+
+    } catch (err) {
+      console.error('Error fetching tasks:', err);
+    }
+  };
+
+  // === CREATE / UPDATE TASK ===
+  const taskForm = document.getElementById('taskForm');
+  if (taskForm) {
+    taskForm.addEventListener('submit', async e => {
+      e.preventDefault();
+
+      const taskData = {
+        title: document.getElementById('title').value.trim(),
+        description: document.getElementById('description').value.trim(),
+        due_date: document.getElementById('deadline').value,
+        priority: document.getElementById('urgency').value,
+        effort: parseInt(document.getElementById('effort').value) || 1,
+        status: document.getElementById('status').value
+      };
+
+      const editId = taskForm.dataset.editId;
+
+      try {
+        let url, method;
+        if (editId) {
+          url = `/Backend/tasks/update_task.php?id=${editId}`;
+          method = 'POST';
+        } else {
+          url = '/Backend/tasks/create_task.php';
+          method = 'POST';
+        }
+
+        const res = await fetch(url, {
+          method,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${getToken()}`
+          },
+          body: JSON.stringify(taskData)
+        });
+
+        const data = await res.json();
+
+        if (res.ok && data.success) {
+          // Close modal
+          const modalInstance = bootstrap.Modal.getInstance(document.getElementById('taskModal'));
+          if (modalInstance) modalInstance.hide();
+
+          // Reset form and remove editId
+          taskForm.reset();
+          delete taskForm.dataset.editId;
+
+          // Update tasks array instantly
+          if (editId && data.task) {
+            const index = tasks.findIndex(t => t.id == editId);
+            if (index !== -1) tasks[index] = data.task;
+          }
+
+          // Refresh table
+          fetchTasks();
+        } else {
+          alert(data.error || 'Failed to save task.');
+        }
+      } catch (err) {
+        console.error('Task save error:', err);
+        alert('Server error while saving task.');
+      }
+    });
   }
-  return user
-}
 
-// Fetch tasks and render in table
-async function fetchTasks() {
-  const user = await getCurrentUser()
-  if (!user) return
+  // === DELETE TASK ===
+  const deleteTask = async id => {
+    if (!confirm('Delete this task?')) return;
 
-  const { data: tasks, error } = await supabase
-    .from('tasks')
-    .select('*')
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: true })
+    try {
+      const res = await fetch(`/Backend/tasks/delete_task.php?id=${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${getToken()}` }
+      });
+      const data = await res.json();
+      if (res.ok && data.success) fetchTasks();
+      else alert(data.error || 'Failed to delete task.');
+    } catch (err) {
+      console.error('Delete task error:', err);
+      alert('Server error while deleting task.');
+    }
+  };
 
-  if (error) return console.log('Error fetching tasks:', error)
+  // === RENDER TASKS ===
+  const renderTasks = tasks => {
+    const tbody = document.getElementById('taskList');
+    if (!tbody) return;
+    tbody.innerHTML = '';
 
-  const tbody = document.getElementById('taskList')
-  tbody.innerHTML = ''
+    if (!tasks.length) {
+      tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted">No tasks found</td></tr>`;
+      return;
+    }
 
-  tasks.forEach(task => {
-    const tr = document.createElement('tr')
-    tr.innerHTML = `
-      <td>${task.title}</td>
-      <td>${task.description || ''}</td>
-      <td>${task.deadline ? new Date(task.deadline).toLocaleDateString() : ''}</td>
-      <td>${task.urgency || ''}</td>
-      <td>${task.status}</td>
-      <td>${task.effort || 0}h</td> <!-- ✅ Added effort column display -->
-      <td>
-        <button class="btn btn-sm btn-success me-1" data-id="${task.id}" data-action="edit">Edit</button>
-        <button class="btn btn-sm btn-danger" data-id="${task.id}" data-action="delete">Delete</button>
-      </td>
-    `
-    tbody.appendChild(tr)
-  })
+    tasks.forEach(task => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${task.title}</td>
+        <td>${task.description || ''}</td>
+        <td>${task.due_date || ''}</td>
+        <td>${task.priority || ''}</td>
+        <td>${task.status || ''}</td>
+        <td>
+          <button class="btn btn-sm btn-primary edit-btn" data-id="${task.id}">Edit</button>
+          <button class="btn btn-sm btn-danger delete-btn" data-id="${task.id}">Delete</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
 
-  // Add button listeners
-  tbody.querySelectorAll('button').forEach(btn => {
-    btn.addEventListener('click', handleTaskAction)
-  })
-}
+    // Attach edit handlers
+    tbody.querySelectorAll('.edit-btn').forEach(btn =>
+      btn.addEventListener('click', () => openEditModal(btn.dataset.id))
+    );
 
-// Handle Edit/Delete actions
-async function handleTaskAction(e) {
-  const btn = e.target
-  const taskId = btn.dataset.id
-  const action = btn.dataset.action
-  const user = await getCurrentUser()
-  if (!user) return
+    // Attach delete handlers
+    tbody.querySelectorAll('.delete-btn').forEach(btn =>
+      btn.addEventListener('click', () => deleteTask(btn.dataset.id))
+    );
+  };
 
-  if (action === 'delete') {
-    const { error } = await supabase.from('tasks').delete().eq('id', taskId)
-    if (error) return alert('Error deleting task: ' + error.message)
-  } else if (action === 'edit') {
-    // Populate modal with task info
-    const { data: [task] } = await supabase.from('tasks').select('*').eq('id', taskId)
-    if (!task) return alert('Task not found')
-    document.getElementById('taskId').value = task.id
-    document.getElementById('title').value = task.title
-    document.getElementById('description').value = task.description
-    document.getElementById('deadline').value = task.deadline ? task.deadline.split('T')[0] : ''
-    document.getElementById('status').value = task.status
-    document.getElementById('urgency').value = task.urgency || 'medium'
-    document.getElementById('effort').value = task.effort || 1 // ✅ Added effort to edit modal
-    const modal = new bootstrap.Modal(document.getElementById('taskModal'))
-    modal.show()
-  }
+  // === OPEN EDIT MODAL ===
+  const openEditModal = taskId => {
+    const task = tasks.find(t => t.id == taskId);
+    if (!task) return;
 
-  fetchTasks()
-}
+    document.getElementById('title').value = task.title;
+    document.getElementById('description').value = task.description || '';
+    document.getElementById('deadline').value = task.due_date || '';
+    document.getElementById('urgency').value = task.priority || '';
+    document.getElementById('status').value = task.status || '';
+    document.getElementById('effort').value = task.effort || 1;
 
-// Handle new/edit task form submission
-document.getElementById('taskForm').addEventListener('submit', async e => {
-  e.preventDefault()
-  const user = await getCurrentUser()
-  if (!user) return
+    // Store task id for update
+    taskForm.dataset.editId = taskId;
 
-  const id = document.getElementById('taskId').value
-  const title = document.getElementById('title').value
-  const description = document.getElementById('description').value
-  const deadline = document.getElementById('deadline').value || null
-  const status = document.getElementById('status').value
-  const urgency = document.getElementById('urgency').value
-  const effort = document.getElementById('effort').value || 0 // ✅ Added effort input
+    const modal = new bootstrap.Modal(document.getElementById('taskModal'));
+    modal.show();
+  };
 
-  if (!title) return alert('Title is required')
+  // === LOGOUT BUTTON ===
+  const logoutBtn = document.getElementById('logoutBtn');
+  if (logoutBtn) logoutBtn.addEventListener('click', logout);
 
-  if (id) {
-    // Update task
-    const { error } = await supabase.from('tasks').update({
-      title, description, deadline, status, urgency, effort // ✅ Added effort here
-    }).eq('id', id)
-    if (error) return alert('Error updating task: ' + error.message)
-  } else {
-    // Insert new task
-    const { error } = await supabase.from('tasks').insert([{
-      user_id: user.id,
-      title,
-      description,
-      deadline,
-      status,
-      urgency,
-      effort // ✅ Added effort here
-    }])
-    if (error) return alert('Error creating task: ' + error.message)
-  }
-
-  // Reset form and hide modal
-  document.getElementById('taskForm').reset()
-  document.getElementById('taskId').value = ''
-  const modal = bootstrap.Modal.getInstance(document.getElementById('taskModal'))
-  modal.hide()
-
-  fetchTasks()
-})
-
-// Initial load
-fetchTasks()
+  // === INITIAL LOAD ===
+  fetchTasks();
+});

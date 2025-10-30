@@ -1,52 +1,75 @@
-import { supabase } from './supabase.js';
-import { setupNavbarAuth } from './main.js';
+// ✅ login.js
 
-const loginForm = document.getElementById('loginForm');
-
-loginForm.addEventListener('submit', async (e) => {
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
   e.preventDefault();
 
-  const email = document.getElementById('email').value;
-  const password = document.getElementById('password').value;
+  const email = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value.trim();
 
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-
-  if (error) {
-    alert('Login failed: ' + error.message);
-  } else {
-    alert('Login successful!');
-
-    // Automatically update navbar auth buttons
-    await setupNavbarAuth();
-
-    // Redirect to tasks page
-    window.location.href = 'tasks.html';
+  if (!email || !password) {
+    alert('Please enter both email and password.');
+    return;
   }
-  
 
-const loginForm = document.querySelector('#loginForm');
+  try {
+    const response = await fetch('/Backend/auth/login.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
 
-loginForm.addEventListener('submit', async (e) => {
-  e.preventDefault();
+    // Convert to text first, to safely handle backend errors
+    const text = await response.text();
+    let result;
 
-  const email = document.querySelector('#email').value;
-  const password = document.querySelector('#password').value;
+    try {
+      result = JSON.parse(text);
+    } catch (err) {
+      console.error('Server returned non-JSON:', text);
+      alert('Server error. Please check backend.');
+      return;
+    }
 
-  const response = await fetch('http://localhost/Taskly-project/Backend/auth.php?action=login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-    credentials: 'include' // important for sessions
-  });
+    if (response.ok && result.success) {
+      // ✅ Save JWT and user info in localStorage
+      localStorage.setItem('jwt', result.token);
+      localStorage.setItem('user', JSON.stringify(result.user));
 
-  const data = await response.json();
-
-  if (response.ok) {
-    alert('Login successful!');
-    window.location.href = '/dashboard.html';
-  } else {
-    alert(data.error || 'Login failed');
+      alert('Login successful! Redirecting to tasks...');
+      window.location.href = 'tasks.html';
+    } else {
+      alert(result.error || 'Login failed');
+    }
+  } catch (err) {
+    console.error('Network or server error:', err);
+    alert('Server error. Please try again later.');
   }
 });
 
+// ✅ Auto-redirect if already logged in and token is still valid
+window.addEventListener('DOMContentLoaded', () => {
+  const token = localStorage.getItem('jwt');
+
+  if (token) {
+    try {
+      const payloadBase64 = token.split('.')[1];
+      if (!payloadBase64) throw new Error('Malformed token');
+      
+      const payload = JSON.parse(atob(payloadBase64));
+      const isExpired = payload.exp * 1000 < Date.now();
+
+      if (!isExpired) {
+        console.log('Valid token found → redirecting to tasks.html');
+        window.location.replace('tasks.html'); // ✅ replace() avoids back-button loop
+      } else {
+        console.warn('Token expired → clearing localStorage');
+        localStorage.removeItem('jwt');
+        localStorage.removeItem('user');
+      }
+    } catch (e) {
+      console.warn('Invalid stored token → clearing it.', e);
+      localStorage.removeItem('jwt');
+      localStorage.removeItem('user');
+    }
+  }
 });

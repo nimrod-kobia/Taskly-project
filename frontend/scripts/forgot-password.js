@@ -1,19 +1,49 @@
 import { supabase } from './supabase.js';
 
-const resetForm = document.getElementById('resetForm');
+console.log('forgot-password.js loaded');
 
-resetForm.addEventListener('submit', async (e) => {
+const form = document.getElementById('resetForm');
+if (!form) {
+  console.error('⚠️ resetForm not found in DOM!');
+}
+
+form.addEventListener('submit', async (e) => {
   e.preventDefault();
+  console.log('Form submitted');
 
   const email = document.getElementById('email').value.trim();
+  console.log('Email entered:', email);
 
-  const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: 'http://localhost:5500/reset-password.html', // your reset page URL
-  });
+  if (!email) {
+    alert('Please enter your email.');
+    return;
+  }
 
-  if (error) {
-    alert('Error: ' + error.message);
-  } else {
-    alert('Password reset link sent! Check your email.');
+  const button = form.querySelector('button[type="submit"]');
+  button.disabled = true;
+  button.textContent = 'Sending...';
+
+  try {
+    const redirectUrl = `http://127.0.0.1:5501/frontend/reset-password.html`;
+    console.log('Using redirect URL:', redirectUrl);
+
+    const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: redirectUrl,
+    });
+
+    console.log('Supabase response:', { data, error });
+
+    if (error) {
+      alert('❌ Error: ' + error.message);
+    } else {
+      alert('✅ Check your inbox for the reset link!');
+      form.reset();
+    }
+  } catch (err) {
+    console.error('Unexpected JS error:', err);
+    alert('Something went wrong: ' + err.message);
+  } finally {
+    button.disabled = false;
+    button.textContent = 'Send Reset Link';
   }
 });

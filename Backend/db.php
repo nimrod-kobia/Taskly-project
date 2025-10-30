@@ -1,16 +1,21 @@
 <?php
 // Backend/db.php
-$config = require __DIR__ . '/config.php';
-$db = $config['db'];
 
-$dsn = "mysql:host={$db['host']};dbname={$db['dbname']};charset={$db['charset']}";
+$host = "ep-mute-cake-a40ghxlz-pooler.us-east-1.aws.neon.tech";
+$dbname = "neondb";
+$user = "neondb_owner";
+$password = "npg_9kiH2baQhWNL";
+$port = "5432";
+
+$dsn = "pgsql:host=$host;port=$port;dbname=$dbname;sslmode=require";
+
 try {
-    $pdo = new PDO($dsn, $db['user'], $db['pass'], [
+    $pdo = new PDO($dsn, $user, $password, [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
     ]);
 } catch (PDOException $e) {
     http_response_code(500);
-    echo json_encode(['error' => 'Database connection failed']);
+    echo json_encode(['error' => 'Database connection failed', 'details' => $e->getMessage()]);
     exit;
 }

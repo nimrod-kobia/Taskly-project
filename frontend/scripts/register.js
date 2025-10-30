@@ -1,56 +1,53 @@
-import { supabase } from './supabase.js';
-import { setupNavbarAuth } from './main.js';
-
 const registerForm = document.getElementById('registerForm');
 
 registerForm.addEventListener('submit', async (e) => {
   e.preventDefault();
 
-  const fullName = document.getElementById('fullName').value;
-  const email = document.getElementById('email').value;
-  const password = document.getElementById('password').value;
+  const fullName = document.getElementById('fullName').value.trim();
+  const email    = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value.trim();
 
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: { data: { full_name: fullName } }
-  });
-
-  if (error) {
-    alert('Signup failed: ' + error.message);
-  } else {
-    alert('Signup successful! Please check your email to verify your account.');
-
-    // Automatically update navbar auth buttons
-    await setupNavbarAuth();
-
-    // Optionally redirect after a delay
-    setTimeout(() => {
-      window.location.href = 'tasks.html';
-    }, 1000);
+  if (!fullName || !email || !password) {
+    alert('Please fill in all fields.');
+    return;
   }
 
-document.querySelector('#registerForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
+  const submitBtn = registerForm.querySelector('button[type="submit"]');
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Registering...';
 
-  const username = document.querySelector('#username').value;
-  const email = document.querySelector('#email').value;
-  const password = document.querySelector('#password').value;
+  try {
+    const response = await fetch('/Backend/auth/register.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fullName, email, password })
+    });
 
-  const response = await fetch('http://localhost/Taskly-project/Backend/auth.php?action=register', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, email, password })
-  });
+    const text = await response.text();
+    let result = {};
+    try {
+      result = JSON.parse(text);
+    } catch (err) {
+      console.error('Server returned non-JSON:', text);
+      alert('Server error. Please check backend.');
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Sign Up';
+      return;
+    }
 
-  const data = await response.json();
+    if (response.ok && result.success) {
+      alert(result.message || 'Registration successful! Redirecting to login...');
+      window.location.href = 'login.html';
+    } else {
+      alert(result.error || 'Registration failed');
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Sign Up';
+    }
 
-  if (response.ok) {
-    alert('Registration successful!');
-    window.location.href = '/login.html';
-  } else {
-    alert(data.error || 'Registration failed');
+  } catch (err) {
+    console.error('Network/server error:', err);
+    alert('Server error. Please try again later.');
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Sign Up';
   }
-});
-
 });

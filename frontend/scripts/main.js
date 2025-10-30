@@ -1,32 +1,35 @@
-import { supabase } from './supabase.js';
-
 /**
- * Get current logged-in user
+ * Get current logged-in user from localStorage
  */
-export async function getCurrentUser() {
-  const { data: { user }, error } = await supabase.auth.getUser();
-  if (error) console.error('Error fetching user:', error);
-  return user || null;
+export function getCurrentUser() {
+  try {
+    const user = JSON.parse(localStorage.getItem('user'));
+    return user || null;
+  } catch (err) {
+    console.error('Error fetching user:', err);
+    return null;
+  }
 }
 
 /**
  * Setup dynamic navbar buttons
  */
-export async function setupNavbarAuth() {
+export function setupNavbarAuth() {
   const authButtons = document.getElementById('auth-buttons');
   if (!authButtons) return;
 
-  const user = await getCurrentUser();
+  const user = getCurrentUser();
 
   if (user) {
     // Logged in → show logout
     authButtons.innerHTML = `
       <button class="btn btn-danger" id="logoutBtn">Logout</button>
     `;
-    document.getElementById('logoutBtn').addEventListener('click', async () => {
-      const { error } = await supabase.auth.signOut();
-      if (error) alert('Logout failed: ' + error.message);
-      else window.location.href = 'login.html';
+    document.getElementById('logoutBtn').addEventListener('click', () => {
+      // Clear token and user from localStorage
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.href = 'login.html';
     });
   } else {
     // Not logged in → show login/signup
@@ -38,15 +41,6 @@ export async function setupNavbarAuth() {
 }
 
 /**
- * Listen to auth state changes and update navbar automatically
- */
-function listenToAuthChanges() {
-  supabase.auth.onAuthStateChange((_event, session) => {
-    setupNavbarAuth();
-  });
-}
-
-/**
  * Load navbar and initialize auth buttons
  */
 document.addEventListener('DOMContentLoaded', async () => {
@@ -55,8 +49,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const html = await response.text();
     document.getElementById('navbar-placeholder').innerHTML = html;
 
-    await setupNavbarAuth();  // Check login state immediately
-    listenToAuthChanges();    // Listen for future login/logout
+    setupNavbarAuth();  // Check login state immediately
   } catch (err) {
     console.error('Navbar load error:', err);
   }
