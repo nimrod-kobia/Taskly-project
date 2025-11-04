@@ -17,7 +17,7 @@ registerForm.addEventListener('submit', async (e) => {
   submitBtn.textContent = 'Registering...';
 
   try {
-    const response = await fetch('/Backend/auth/register.php', {
+    const response = await fetch('http://localhost:8000/auth/register.php', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ fullName, email, password })

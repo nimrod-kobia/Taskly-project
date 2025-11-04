@@ -1,12 +1,13 @@
 <?php
-// Always return JSON and suppress HTML errors
+// ✅ Must be first for CORS
+require __DIR__ . '/../cors.php';
+
+// ✅ Always return JSON
 header('Content-Type: application/json');
 ini_set('display_errors', 0);
 error_reporting(0);
-$input = json_decode(file_get_contents('php://input'), true) ?? [];
-file_put_contents(__DIR__ . '/debug.log', print_r($input, true), FILE_APPEND);
 
-
+// ✅ Load dependencies and config
 require __DIR__ . '/../vendor/autoload.php';
 require __DIR__ . '/../db.php';
 $config = require __DIR__ . '/../config.php';
@@ -16,13 +17,14 @@ use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
 try {
-    // Read JSON input
+    // ✅ Read JSON input
     $input = json_decode(file_get_contents('php://input'), true) ?? [];
 
     $fullName = trim($input['fullName'] ?? '');
     $email    = trim($input['email'] ?? '');
     $password = trim($input['password'] ?? '');
 
+    // ✅ Validate
     if (!$fullName || !$email || !$password) {
         http_response_code(400);
         echo json_encode(['success' => false, 'error' => 'All fields are required']);
@@ -35,25 +37,24 @@ try {
         exit;
     }
 
-    // Hash password
+    // ✅ Hash password
     $passwordHash = password_hash($password, PASSWORD_BCRYPT);
     $token = bin2hex(random_bytes(32));
 
-    // Start transaction
+    // ✅ Start transaction
     $pdo->beginTransaction();
 
-    // Insert user into database
+    // ✅ Insert new user
     $sql = "INSERT INTO users (full_name, email, password, verify_token) VALUES (?, ?, ?, ?) RETURNING id";
     $stmt = $pdo->prepare($sql);
     $stmt->execute([$fullName, $email, $passwordHash, $token]);
-
     $userId = $stmt->fetchColumn();
 
-    // Build verification URL
+    // ✅ Build verification link
     $base = rtrim($config['app_base_url'] ?? 'http://localhost:8000', '/');
-    $verifyUrl = $base . '/Backend/auth/verify.php?token=' . $token;
+    $verifyUrl = $base . '/auth/verify.php?token=' . $token;
 
-    // Send verification email
+    // ✅ Send verification email
     $mail = new PHPMailer(true);
     $mail->isSMTP();
     $mail->Host       = $smtp['host'] ?? 'smtp.gmail.com';
@@ -75,11 +76,13 @@ try {
         <p><a href='{$verifyUrl}'>Verify my Taskly account</a></p>
         <p>If the link does not work, paste this URL into your browser:</p>
         <p>{$verifyUrl}</p>
+        <hr>
+        <p style='font-size:12px;color:#777;'>This email was sent automatically by Taskly.</p>
     ";
 
     $mail->send();
 
-    // Commit transaction only after mail sent
+    // ✅ Commit if all good
     $pdo->commit();
 
     echo json_encode([
@@ -91,17 +94,20 @@ try {
 } catch (PDOException $e) {
     if ($pdo->inTransaction()) $pdo->rollBack();
     http_response_code(400);
-    echo json_encode(['success' => false, 'error' => 'Registration failed', 'details' => $e->getMessage()]);
+    echo json_encode([
+        'success' => false,
+        'error' => 'Registration failed',
+        'details' => $e->getMessage()
+    ]);
     exit;
+
 } catch (Exception $e) {
     if ($pdo->inTransaction()) $pdo->rollBack();
     http_response_code(500);
-    echo json_encode(['success' => false, 'error' => 'Failed to send verification email', 'details' => $e->getMessage()]);
+    echo json_encode([
+        'success' => false,
+        'error' => 'Failed to send verification email',
+        'details' => $e->getMessage()
+    ]);
     exit;
 }
-
-
-// For debugging: log input data (remove in production)
-$input = json_decode(file_get_contents('php://input'), true) ?? [];
-file_put_contents(__DIR__ . '/debug.log', print_r($input, true), FILE_APPEND);
-

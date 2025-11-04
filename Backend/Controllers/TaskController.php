@@ -1,5 +1,5 @@
 <?php
-// Backend/controllers/TaskController.php
+// Backend/Controllers/TaskController.php
 
 class TaskController {
     private $pdo;
@@ -32,7 +32,7 @@ class TaskController {
             $stmt->execute([$userId, $title, $description, $due_date, $priority, $effort, $status]);
 
             $taskId = $stmt->fetchColumn();
-            echo json_encode(['success' => true, 'task_id' => $taskId]);
+            return ['success' => true, 'task_id' => $taskId];
 
         } catch (\PDOException $e) {
             http_response_code(500);

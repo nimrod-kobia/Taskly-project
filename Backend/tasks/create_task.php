@@ -1,21 +1,23 @@
 <?php
+// Backend/tasks/create_task.php
 
+// === Include CORS first (very important) ===
+require __DIR__ . '/../cors.php';
 
 // Enable error reporting for debugging (remove in production)
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
+
 header('Content-Type: application/json');
 
-
-
-// Include DB, config, and controller
+// === Include other dependencies ===
 require __DIR__ . '/../db.php';
 require __DIR__ . '/../config.php';
 require __DIR__ . '/../Controllers/TaskController.php';
 require __DIR__ . '/../vendor/autoload.php';
 
-// Read JSON input
+// === Read JSON input ===
 $input = json_decode(file_get_contents('php://input'), true);
 file_put_contents('php://stderr', "Input: " . print_r($input, true) . "\n");
 
@@ -42,18 +44,16 @@ try {
 }
 
 // === CREATE TASK ===
-// Pass PDO and table-accurate columns to the controller
 $controller = new TaskController($pdo);
 
-// Only include columns that exist in your DB table
 $taskData = [
     'title'       => $input['title'] ?? null,
     'description' => $input['description'] ?? null,
     'priority'    => $input['priority'] ?? null,
     'due_date'    => $input['due_date'] ?? null,
-    'effort'      => $input['effort'] ?? null
+    'effort'      => $input['effort'] ?? null,
+    'status'      => $input['status'] ?? 'To Do'
 ];
 
 $result = $controller->createTask($userId, $taskData);
-
 echo json_encode($result);

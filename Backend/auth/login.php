@@ -1,5 +1,10 @@
 <?php
 // Backend/auth/login.php
+
+// --- CORS must run before anything else (even autoload) ---
+require __DIR__ . '/../cors.php';
+
+// --- Now continue ---
 require __DIR__ . '/../vendor/autoload.php';
 require __DIR__ . '/../db.php';
 $config = require __DIR__ . '/../config.php';
@@ -7,11 +12,18 @@ $config = require __DIR__ . '/../config.php';
 use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
 
+// Always return JSON
 header('Content-Type: application/json');
 
+// Decode incoming JSON
 $input = json_decode(file_get_contents('php://input'), true);
 $email = trim($input['email'] ?? '');
 $password = trim($input['password'] ?? '');
+
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit;
+}
 
 if (!$email || !$password) {
     http_response_code(400);
@@ -41,12 +53,19 @@ try {
         'user_id' => $user['id'],
         'email' => $user['email'],
         'iat' => time(),
-        'exp' => time() + 86400
+        'exp' => time() + 86400 // 1 day
     ];
 
     $token = JWT::encode($payload, $secretKey, 'HS256');
 
-    echo json_encode(['success' => true, 'token' => $token, 'user' => ['id' => $user['id'], 'email' => $user['email']]]);
+    echo json_encode([
+        'success' => true,
+        'token' => $token,
+        'user' => [
+            'id' => $user['id'],
+            'email' => $user['email']
+        ]
+    ]);
     exit;
 
 } catch (Exception $e) {

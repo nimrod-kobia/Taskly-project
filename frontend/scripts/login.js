@@ -12,13 +12,13 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
   }
 
   try {
-    const response = await fetch('/Backend/auth/login.php', {
+    const response = await fetch('http://localhost:8000/auth/login.php', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password })
     });
 
-    // Convert to text first, to safely handle backend errors
+    // Convert to text first for safety
     const text = await response.text();
     let result;
 
@@ -31,7 +31,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
     }
 
     if (response.ok && result.success) {
-      // ✅ Save JWT and user info in localStorage
+      // ✅ Save JWT and user info
       localStorage.setItem('jwt', result.token);
       localStorage.setItem('user', JSON.stringify(result.user));
 
@@ -40,15 +40,23 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
     } else {
       alert(result.error || 'Login failed');
     }
+
   } catch (err) {
     console.error('Network or server error:', err);
     alert('Server error. Please try again later.');
   }
 });
 
-// ✅ Auto-redirect if already logged in and token is still valid
+
+// ✅ Auto redirect if already logged in (but skip if you're already on login page)
 window.addEventListener('DOMContentLoaded', () => {
   const token = localStorage.getItem('jwt');
+
+  // Stop auto-redirect if you’re literally on login.html
+  if (window.location.pathname.includes('login.html')) {
+    console.log('On login page → skipping auto redirect.');
+    return;
+  }
 
   if (token) {
     try {
@@ -60,7 +68,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
       if (!isExpired) {
         console.log('Valid token found → redirecting to tasks.html');
-        window.location.replace('tasks.html'); // ✅ replace() avoids back-button loop
+        window.location.replace('tasks.html');
       } else {
         console.warn('Token expired → clearing localStorage');
         localStorage.removeItem('jwt');
