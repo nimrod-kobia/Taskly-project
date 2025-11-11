@@ -38,7 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // ===== Fetch Tasks =====
   const fetchAndRenderTasks = async () => {
     try {
-      const res = await fetch('/Backend/tasks/get_tasks.php', {
+      const res = await fetch('http://localhost:8000/tasks/get_tasks.php', {
         headers: { 'Authorization': `Bearer ${getToken()}` }
       });
       const data = await res.json();
@@ -103,7 +103,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   try {
-    const res = await fetch('/Backend/Users/get_user.php', {
+    const res = await fetch('http://localhost:8000/Users/get_user.php', {
       headers: { 'Authorization': `Bearer ${token}` }
     });
     console.log('Fetch /get_user.php status:', res.status);
