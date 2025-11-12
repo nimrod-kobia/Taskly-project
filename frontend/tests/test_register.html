@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Registration</title>
+    <link rel="icon" href="data:," />
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 { color: #333; }
+        .form-group {
+            margin: 15px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        input:focus {
+            outline: none;
+            border-color: #007bff;
+        }
+        #console { 
+            background: #1e1e1e; 
+            color: #00ff00; 
+            padding: 15px; 
+            border-radius: 5px;
+            font-family: monospace;
+            margin-top: 20px;
+            min-height: 100px;
+            overflow-y: auto;
+            max-height: 400px;
+        }
+        .status { margin: 10px 0; font-size: 18px; }
+        .passed { color: green; font-weight: bold; }
+        .failed { color: red; font-weight: bold; }
+        .running { color: orange; font-weight: bold; }
+        .warning {
+            background: #fff3cd;
+            padding: 15px;
+            border-left: 4px solid #ffc107;
+            margin: 15px 0;
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        button {
+            flex: 1;
+            padding: 12px 20px;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        button:hover { 
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .btn-check { background: #28a745; }
+        .btn-check:hover { background: #218838; }
+        .btn-test { background: #007bff; }
+        .btn-test:hover { background: #0056b3; }
+        .btn-clear { background: #6c757d; }
+        .btn-clear:hover { background: #5a6268; }
+        .btn-verify { background: #17a2b8; }
+        .btn-verify:hover { background: #138496; }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1> Registration Test (Neon DB)</h1>
+        
+        <div class="warning">
+             <strong>Before running:</strong><br>
+            1. Open terminal: <code>cd backend</code><br>
+            2. Start server: <code>php -S localhost:8000</code><br>
+            3. Keep terminal open!
+        </div>
+        
+        <div class="status running" id="status">Enter user details below and click "Run Test"</div>
+        
+        <!-- User Input Form -->
+        <form id="testForm" onsubmit="return false;">
+            <div class="form-group">
+                <label for="fullName">Full Name:</label>
+                <input type="text" id="fullName" placeholder="Enter full name" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="email">Email:</label>
+                <input type="email" id="email" placeholder="Enter email address" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="password">Password:</label>
+                <input type="password" id="password" placeholder="Enter password (min 6 chars)" required>
+            </div>
+        </form>
+        
+        <div class="button-group">
+            <button class="btn-check" onclick="checkServer()">🔍 Check Server</button>
+            <button class="btn-test" onclick="runTest()">▶️ Run Test</button>
+            <button class="btn-verify" onclick="verifyInDB()">✓ Verify in DB</button>
+            <button class="btn-clear" onclick="clearConsole()">🗑️ Clear</button>
+        </div>
+        
+        <div id="console">Console Output:<br></div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:8000/register.php';
+        const VERIFY_URL = 'http://localhost:8000/verify_user.php';
+        const consoleDiv = document.getElementById('console');
+        const statusDiv = document.getElementById('status');
+        let lastRegisteredEmail = null;
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const color = type === 'error' ? '#ff6b6b' : 
+                         type === 'success' ? '#51cf66' : 
+                         type === 'warning' ? '#ffd93d' : '#00ff00';
+            consoleDiv.innerHTML += `<span style="color: ${color}">[${timestamp}] ${message}</span><br>`;
+            consoleDiv.scrollTop = consoleDiv.scrollHeight;
+            console.log(message);
+        }
+        
+        function clearConsole() {
+            consoleDiv.innerHTML = 'Console Output:<br>';
+        }
+        
+        async function checkServer() {
+            clearConsole();
+            log('Checking if backend server is running...');
+            
+            try {
+                const response = await fetch('http://localhost:8000/register.php');
+                log(`✓ Server is running! Status: ${response.status}`, 'success');
+                log('Backend server is accessible at http://localhost:8000', 'success');
+                statusDiv.className = 'status passed';
+                statusDiv.textContent = '✓ Server is running! You can now run the test.';
+            } catch (error) {
+                log('✗ Server is NOT running!', 'error');
+                log('Error: ' + error.message, 'error');
+                log('Please start the backend server:', 'error');
+                log('  1. Open Command Prompt', 'error');
+                log('  2. cd c:\\Apache24\\htdocs\\Taskly-project\\backend', 'error');
+                log('  3. php -S localhost:8000', 'error');
+                statusDiv.className = 'status failed';
+                statusDiv.textContent = '✗ Backend server is not running!';
+            }
+        }
+        
+        async function runTest() {
+            // Get user input
+            const fullName = document.getElementById('fullName').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+            
+            // Validate input
+            if (!fullName || !email || !password) {
+                alert('Please fill in all fields!');
+                log('✗ Validation failed: All fields are required', 'error');
+                return;
+            }
+            
+            if (fullName.length < 2) {
+                alert('Full name must be at least 2 characters!');
+                log('✗ Validation failed: Full name too short', 'error');
+                return;
+            }
+            
+            if (password.length < 6) {
+                alert('Password must be at least 6 characters!');
+                log('✗ Validation failed: Password too short', 'error');
+                return;
+            }
+            
+            // Validate email format
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+                alert('Please enter a valid email address!');
+                log('✗ Validation failed: Invalid email format', 'error');
+                return;
+            }
+            
+            statusDiv.className = 'status running';
+            statusDiv.textContent = '⏳ Running test...';
+            clearConsole();
+            
+            const testUser = {
+                full_name: fullName,
+                email: email,
+                password: password
+            };
+            
+            log('Starting Registration Test...');
+            log(`Full Name: ${testUser.full_name}`);
+            log(`Email: ${testUser.email}`);
+            log(`Password: ${'*'.repeat(password.length)} (${password.length} chars)`);
+            log(`API Endpoint: ${API_URL}`);
+            
+            try {
+                log('Sending registration request to API...');
+                
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(testUser)
+                });
+                
+                log(`Response Status: ${response.status} ${response.statusText}`);
+                
+                const contentType = response.headers.get('content-type');
+                log(`Content-Type: ${contentType}`);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    log(`Server Response: ${errorText}`, 'error');
+                    throw new Error(`HTTP ${response.status}: ${errorText}`);
+                }
+                
+                const data = await response.json();
+                log(`Response Data: ${JSON.stringify(data, null, 2)}`);
+                
+                if (data.success) {
+                    log('✓ User registered successfully!', 'success');
+                    log(`User ID: ${data.user.id}`, 'success');
+                    log(`Full Name: ${data.user.full_name}`, 'success');
+                    log(`Email: ${data.user.email}`, 'success');
+                    log('', 'success');
+                    log(' You can now click "Verify in DB" to check the database', 'warning');
+                    
+                    lastRegisteredEmail = data.user.email;
+                    
+                    statusDiv.className = 'status passed';
+                    statusDiv.textContent = '✓ TEST PASSED - User registered in Neon DB';
+                } else {
+                    log(`Registration failed: ${data.message}`, 'error');
+                    statusDiv.className = 'status failed';
+                    statusDiv.textContent = '✗ TEST FAILED - ' + data.message;
+                }
+                
+            } catch (error) {
+                log(`✗ Test Error: ${error.message}`, 'error');
+                
+                if (error.message.includes('Failed to fetch')) {
+                    log('', 'error');
+                    log('=== TROUBLESHOOTING ===', 'error');
+                    log('1. Is the backend server running?', 'error');
+                    log('   Run: php -S localhost:8000', 'error');
+                    log('2. Is it running on port 8000?', 'error');
+                    log('3. Check for firewall blocking localhost', 'error');
+                }
+                
+                statusDiv.className = 'status failed';
+                statusDiv.textContent = '✗ TEST FAILED - Cannot connect to backend';
+            }
+        }
+        
+        async function verifyInDB() {
+            const email = lastRegisteredEmail || document.getElementById('email').value.trim();
+            
+            if (!email) {
+                alert('Please enter an email or register a user first!');
+                return;
+            }
+            
+            log('');
+            log('=== VERIFYING USER IN DATABASE ===', 'warning');
+            log(`Checking if email exists: ${email}`);
+            
+            try {
+                const response = await fetch(`${VERIFY_URL}?email=${encodeURIComponent(email)}`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data.success && data.exists) {
+                    log('✓ USER FOUND IN DATABASE!', 'success');
+                    log(`User ID: ${data.user.id}`, 'success');
+                    log(`Full Name: ${data.user.full_name || 'N/A'}`, 'success');
+                    log(`Email: ${data.user.email}`, 'success');
+                    log(`Created: ${data.user.created_at}`, 'success');
+                } else {
+                    log('✗ User NOT found in database', 'error');
+                    log('The user may not exist or there was an error', 'error');
+                }
+                
+            } catch (error) {
+                log(`✗ Verification Error: ${error.message}`, 'error');
+                log('Make sure verify_user.php exists in backend folder', 'warning');
+            }
+        }
+        
+        // Auto-generate unique email suggestion
+        document.getElementById('email').placeholder = `test_${Date.now()}@example.com`;
+    </script>
+</body>
+</html>

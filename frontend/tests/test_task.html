@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Task Creation</title>
+    <link rel="icon" href="data:," />
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            max-width: 700px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 { color: #333; }
+        .server-status {
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-size: 16px;
+            text-align: center;
+        }
+        .server-offline {
+            background: #ff4444;
+            color: white;
+            animation: pulse 2s infinite;
+        }
+        .server-online {
+            background: #00C851;
+            color: white;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        .start-instructions {
+            background: #fff3cd;
+            padding: 20px;
+            border-left: 5px solid #ffc107;
+            margin: 20px 0;
+        }
+        .start-instructions h3 {
+            margin-top: 0;
+            color: #856404;
+        }
+        .start-instructions code {
+            background: #f8f9fa;
+            padding: 5px 10px;
+            border-radius: 3px;
+            display: block;
+            margin: 10px 0;
+            color: #d63384;
+        }
+        .form-group {
+            margin: 15px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            box-sizing: border-box;
+            font-family: inherit;
+        }
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #007bff;
+        }
+        textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+        #console { 
+            background: #1e1e1e; 
+            color: #00ff00; 
+            padding: 15px; 
+            border-radius: 5px;
+            font-family: monospace;
+            margin-top: 20px;
+            min-height: 100px;
+            overflow-y: auto;
+            max-height: 400px;
+        }
+        .status { margin: 10px 0; font-size: 18px; }
+        .passed { color: green; font-weight: bold; }
+        .failed { color: red; font-weight: bold; }
+        .running { color: orange; font-weight: bold; }
+        .note { 
+            background: #e7f3ff;
+            padding: 15px;
+            border-left: 4px solid #2196F3;
+            margin: 15px 0;
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        button {
+            flex: 1;
+            min-width: 150px;
+            padding: 12px 20px;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        button:hover:not(:disabled) { 
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .btn-check { background: #28a745; }
+        .btn-check:hover { background: #218838; }
+        .btn-test { background: #007bff; }
+        .btn-test:hover { background: #0056b3; }
+        .btn-clear { background: #6c757d; }
+        .btn-clear:hover { background: #5a6268; }
+        .btn-verify { background: #17a2b8; }
+        .btn-verify:hover { background: #138496; }
+        .btn-list { background: #6f42c1; }
+        .btn-list:hover { background: #5a32a3; }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>Task Creation Test (Neon DB)</h1>
+        
+        <div id="serverStatus" class="server-status server-offline">
+            Backend Server is OFFLINE - Checking...
+        </div>
+        
+        <div id="startInstructions" class="start-instructions" style="display:none;">
+            <h3>Backend Server Not Running!</h3>
+            <p><strong>Follow these steps to start the server:</strong></p>
+            <ol>
+                <li>Open <strong>Command Prompt</strong> (Win + R, type "cmd", Enter)</li>
+                <li>Navigate to backend folder:
+                    <code>cd c:\Apache24\htdocs\Taskly-project\backend</code>
+                </li>
+                <li>Start the server:
+                    <code>php -S localhost:8000</code>
+                </li>
+                <li>Keep the terminal open!</li>
+                <li>Refresh this page or click "Check Server" button</li>
+            </ol>
+        </div>
+        
+        <div class="note">
+            <strong>Important:</strong> You need a User ID to create tasks. Get it from the login or registration test.
+        </div>
+        
+        <div class="status running" id="status">Enter task details and click "Create Task"</div>
+        
+        <form id="testForm" onsubmit="return false;">
+            <div class="form-group">
+                <label for="userId">User ID: <span style="color: red;">*</span></label>
+                <input type="number" id="userId" placeholder="Enter your user ID" required>
+                <small style="color: #666;">Get from login/register test</small>
+            </div>
+            
+            <div class="form-group">
+                <label for="title">Task Title: <span style="color: red;">*</span></label>
+                <input type="text" id="title" placeholder="e.g., Complete Homework" value="Complete Homework" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="description">Description:</label>
+                <textarea id="description" placeholder="Task description (optional)">Finish math homework and submit online</textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="dueDate">Due Date:</label>
+                <input type="date" id="dueDate">
+            </div>
+            
+            <div class="form-group">
+                <label for="priority">Priority:</label>
+                <select id="priority">
+                    <option value="Low">Low</option>
+                    <option value="Medium" selected>Medium</option>
+                    <option value="High">High</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="completed">Status:</label>
+                <select id="completed">
+                    <option value="false" selected>Not Completed</option>
+                    <option value="true">Completed</option>
+                </select>
+            </div>
+        </form>
+        
+        <div class="button-group">
+            <button class="btn-check" onclick="checkServer()">Refresh Server Status</button>
+            <button class="btn-test" id="createBtn" onclick="runTest()">Create Task</button>
+            <button class="btn-verify" id="verifyBtn" onclick="verifyTask()">Verify Task</button>
+            <button class="btn-list" id="listBtn" onclick="listUserTasks()">List All Tasks</button>
+            <button class="btn-clear" onclick="clearConsole()">Clear</button>
+        </div>
+        
+        <div id="console">Console Output:<br></div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:8000/tasks.php';
+        const consoleDiv = document.getElementById('console');
+        const statusDiv = document.getElementById('status');
+        const serverStatusDiv = document.getElementById('serverStatus');
+        const startInstructionsDiv = document.getElementById('startInstructions');
+        let lastCreatedTaskId = null;
+        let lastUserId = null;
+        let serverOnline = false;
+        
+        window.addEventListener('DOMContentLoaded', () => {
+            checkServer();
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            document.getElementById('dueDate').value = tomorrow.toISOString().split('T')[0];
+        });
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const color = type === 'error' ? '#ff6b6b' : 
+                         type === 'success' ? '#51cf66' : 
+                         type === 'warning' ? '#ffd93d' : 
+                         type === 'info' ? '#74c0fc' : '#00ff00';
+            consoleDiv.innerHTML += `<span style="color: ${color}">[${timestamp}] ${message}</span><br>`;
+            consoleDiv.scrollTop = consoleDiv.scrollHeight;
+            console.log(message);
+        }
+        
+        function clearConsole() {
+            consoleDiv.innerHTML = 'Console Output:<br>';
+        }
+        
+        function updateServerStatus(online) {
+            serverOnline = online;
+            const createBtn = document.getElementById('createBtn');
+            const verifyBtn = document.getElementById('verifyBtn');
+            const listBtn = document.getElementById('listBtn');
+            
+            if (online) {
+                serverStatusDiv.className = 'server-status server-online';
+                serverStatusDiv.innerHTML = 'Backend Server is ONLINE - Ready to test!';
+                startInstructionsDiv.style.display = 'none';
+                createBtn.disabled = false;
+                verifyBtn.disabled = false;
+                listBtn.disabled = false;
+            } else {
+                serverStatusDiv.className = 'server-status server-offline';
+                serverStatusDiv.innerHTML = 'Backend Server is OFFLINE - Cannot create tasks';
+                startInstructionsDiv.style.display = 'block';
+                createBtn.disabled = true;
+                verifyBtn.disabled = true;
+                listBtn.disabled = true;
+            }
+        }
+        
+        async function checkServer() {
+            log('Checking backend server status...');
+            
+            try {
+                const response = await fetch('http://localhost:8000/tasks.php?user_id=1', {
+                    method: 'GET',
+                    signal: AbortSignal.timeout(3000)
+                });
+                
+                log('Server is ONLINE! Status: ' + response.status, 'success');
+                log('Backend accessible at http://localhost:8000', 'success');
+                updateServerStatus(true);
+                
+                statusDiv.className = 'status passed';
+                statusDiv.textContent = 'Server is running! Fill in the form and create a task.';
+                
+            } catch (error) {
+                log('Server is OFFLINE or unreachable', 'error');
+                log('Error: ' + error.message, 'error');
+                updateServerStatus(false);
+                
+                statusDiv.className = 'status failed';
+                statusDiv.textContent = 'Backend server is not running - Start it first!';
+            }
+        }
+        
+        async function runTest() {
+            const userId = document.getElementById('userId').value.trim();
+            const title = document.getElementById('title').value.trim();
+            const description = document.getElementById('description').value.trim();
+            const dueDate = document.getElementById('dueDate').value;
+            const priority = document.getElementById('priority').value;
+            const completed = document.getElementById('completed').value === 'true';
+            
+            if (!userId) {
+                alert('User ID is required!');
+                log('Validation failed: User ID is required', 'error');
+                return;
+            }
+            
+            if (!title) {
+                alert('Task title is required!');
+                log('Validation failed: Title is required', 'error');
+                return;
+            }
+            
+            statusDiv.className = 'status running';
+            statusDiv.textContent = 'Creating task...';
+            clearConsole();
+            
+            const taskData = {
+                user_id: parseInt(userId),
+                title: title,
+                description: description || null,
+                due_date: dueDate || null,
+                priority: priority,
+                completed: completed
+            };
+            
+            log('Starting Task Creation Test...');
+            log('User ID: ' + taskData.user_id);
+            log('Title: ' + taskData.title);
+            log('Description: ' + (taskData.description || 'N/A'));
+            log('Due Date: ' + (taskData.due_date || 'N/A'));
+            log('Priority: ' + taskData.priority);
+            log('Completed: ' + taskData.completed);
+            log('');
+            
+            try {
+                log('Sending task creation request to API...');
+                
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(taskData)
+                });
+                
+                log('Response Status: ' + response.status + ' ' + response.statusText);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    log('Server Error: ' + errorText, 'error');
+                    throw new Error('HTTP ' + response.status + ': ' + errorText);
+                }
+                
+                const data = await response.json();
+                log('Response Data: ' + JSON.stringify(data, null, 2), 'info');
+                
+                if (data.success) {
+                    log('Task created successfully!', 'success');
+                    log('Task ID: ' + data.task.id, 'success');
+                    log('Title: ' + data.task.title, 'success');
+                    log('Priority: ' + data.task.priority, 'success');
+                    log('Completed: ' + data.task.completed, 'success');
+                    log('Created At: ' + data.task.created_at, 'success');
+                    log('');
+                    log('Click "Verify Task" to confirm it was saved', 'warning');
+                    
+                    lastCreatedTaskId = data.task.id;
+                    lastUserId = data.task.user_id;
+                    
+                    statusDiv.className = 'status passed';
+                    statusDiv.textContent = 'TEST PASSED - Task created in Neon DB';
+                    
+                    setTimeout(() => verifyTask(), 1000);
+                } else {
+                    log('Task creation failed: ' + data.message, 'error');
+                    statusDiv.className = 'status failed';
+                    statusDiv.textContent = 'TEST FAILED - ' + data.message;
+                }
+                
+            } catch (error) {
+                log('Test Error: ' + error.message, 'error');
+                
+                if (error.message.includes('Failed to fetch')) {
+                    log('', 'error');
+                    log('Server connection lost! Please check:', 'error');
+                    log('1. Is the backend server still running?', 'error');
+                    log('2. Check the terminal window', 'error');
+                    updateServerStatus(false);
+                }
+                
+                statusDiv.className = 'status failed';
+                statusDiv.textContent = 'TEST FAILED - Cannot connect to backend';
+            }
+        }
+        
+        async function verifyTask() {
+            const taskId = lastCreatedTaskId;
+            const userId = lastUserId || document.getElementById('userId').value.trim();
+            
+            if (!taskId) {
+                log('No task ID to verify. Create a task first!', 'warning');
+                return;
+            }
+            
+            log('');
+            log('=== VERIFYING TASK IN DATABASE ===', 'warning');
+            log('Fetching task ID: ' + taskId);
+            
+            try {
+                const response = await fetch(API_URL + '?user_id=' + userId);
+                
+                if (!response.ok) {
+                    throw new Error('HTTP ' + response.status);
+                }
+                
+                const data = await response.json();
+                
+                if (data.success && data.tasks) {
+                    const task = data.tasks.find(t => t.id === taskId);
+                    
+                    if (task) {
+                        log('TASK FOUND IN DATABASE!', 'success');
+                        log('Task ID: ' + task.id, 'success');
+                        log('Title: ' + task.title, 'success');
+                        log('Description: ' + (task.description || 'N/A'), 'success');
+                        log('Priority: ' + task.priority, 'success');
+                        log('Due Date: ' + (task.due_date || 'N/A'), 'success');
+                        log('Completed: ' + task.completed, 'success');
+                        log('');
+                        log('Task successfully verified in Neon DB!', 'success');
+                    } else {
+                        log('Task NOT found in database', 'error');
+                    }
+                }
+                
+            } catch (error) {
+                log('Verification Error: ' + error.message, 'error');
+            }
+        }
+        
+        async function listUserTasks() {
+            const userId = lastUserId || document.getElementById('userId').value.trim();
+            
+            if (!userId) {
+                alert('Please enter a User ID first!');
+                return;
+            }
+            
+            log('');
+            log('=== FETCHING ALL TASKS FOR USER ===', 'info');
+            log('User ID: ' + userId);
+            
+            try {
+                const response = await fetch(API_URL + '?user_id=' + userId);
+                
+                if (!response.ok) {
+                    throw new Error('HTTP ' + response.status);
+                }
+                
+                const data = await response.json();
+                
+                if (data.success && data.tasks) {
+                    log('Found ' + data.tasks.length + ' task(s)', 'success');
+                    log('');
+                    
+                    if (data.tasks.length === 0) {
+                        log('No tasks found for this user', 'warning');
+                    } else {
+                        data.tasks.forEach((task, index) => {
+                            log('--- Task ' + (index + 1) + ' ---', 'info');
+                            log('ID: ' + task.id, 'info');
+                            log('Title: ' + task.title, 'info');
+                            log('Priority: ' + task.priority, 'info');
+                            log('Completed: ' + task.completed, 'info');
+                            log('Created: ' + task.created_at, 'info');
+                            log('');
+                        });
+                    }
+                }
+                
+            } catch (error) {
+                log('Error: ' + error.message, 'error');
+            }
+        }
+    </script>
+</body>
+</html>
