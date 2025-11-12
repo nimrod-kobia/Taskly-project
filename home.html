@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Taskly — Home</title>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700&family=Roboto&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    /* Basic reset */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Roboto', sans-serif;
+    }
+
+    html, body {
+      height: 100%;
+      width: 100%;
+    }
+
+    /* Background gradient */
+    body {
+      background: linear-gradient(135deg, #6a11cb, #2575fc);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      color: white;
+    }
+
+    /* Container */
+    .container-home {
+      background: rgba(0, 0, 0, 0.35);
+      padding: 60px 40px;
+      border-radius: 20px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+    }
+
+    /* Fancy Taskly logo */
+    .logo {
+      font-family: 'Montserrat', sans-serif;
+      font-size: 4rem;
+      font-weight: 800;
+      background: linear-gradient(90deg, #ff512f, #dd2476);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 30px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      animation: glow 2s ease-in-out infinite alternate;
+    }
+
+    @keyframes glow {
+      from { text-shadow: 0 0 5px #fff; }
+      to { text-shadow: 0 0 20px #fff, 0 0 30px #ff512f, 0 0 40px #dd2476; }
+    }
+
+    /* Buttons */
+    .btn-custom {
+      padding: 15px 40px;
+      margin: 10px;
+      font-size: 1.2rem;
+      font-weight: bold;
+      border-radius: 50px;
+      border: none;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .btn-signin {
+      background: #ffffff;
+      color: #2575fc;
+    }
+
+    .btn-signin:hover {
+      background: #e0e0e0;
+    }
+
+    .btn-signup {
+      background: #ff512f;
+      color: white;
+    }
+
+    .btn-signup:hover {
+      background: #dd2476;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 600px) {
+      .logo {
+        font-size: 3rem;
+      }
+      .btn-custom {
+        width: 80%;
+        font-size: 1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container-home">
+    <div class="logo">Taskly</div>
+    <p style="margin-bottom:40px; font-size: 1.2rem;">Organize your tasks, boost your productivity!</p>
+    
+    <!-- Buttons linking to login and register -->
+    <button class="btn-custom btn-signin" onclick="window.location.href='login.html'">Sign In</button>
+    <button class="btn-custom btn-signup" onclick="window.location.href='register.html'">Sign Up</button>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
