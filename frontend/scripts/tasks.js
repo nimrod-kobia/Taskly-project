@@ -291,6 +291,28 @@ if (viewSelect.value === 'kanban') {
   renderKanban(tasks);
 }
 
+// === FILTER TASKS BASED ON SEARCH INPUT ===
+const filterTasks = () => {
+  const query = document.getElementById('searchInput').value.toLowerCase().trim();
+
+  const filtered = tasks.filter(task => {
+    return (
+      task.title.toLowerCase().includes(query) ||
+      (task.description && task.description.toLowerCase().includes(query)) ||
+      (task.status && task.status.toLowerCase().includes(query)) ||
+      (task.priority && task.priority.toLowerCase().includes(query))
+    );
+  });
+
+  renderTasks(filtered);     // update list view
+  if (document.getElementById('kanbanView').style.display !== 'none') {
+    renderKanban(filtered);   // update Kanban view if visible
+  }
+};
+  const searchInput = document.getElementById('searchInput');
+  searchInput.addEventListener('input', filterTasks);
+
+
 
 
 });
