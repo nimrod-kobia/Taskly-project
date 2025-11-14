@@ -1,18 +1,18 @@
 <?php
 // Backend/db.php
-require_once __DIR__ . '/config.php';
+$config = require __DIR__ . '/config.php';
 
 try {
     $pdo = new PDO(
-        "pgsql:host={$db_config['host']};dbname={$db_config['dbname']};sslmode=require",
-        $db_config['user'],
-        $db_config['password'],
+        "pgsql:host={$config['db']['host']};dbname={$config['db']['dbname']};sslmode=require",
+        $config['db']['user'],
+        $config['db']['pass'], // note: 'pass' not 'password'
         [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             PDO::ATTR_EMULATE_PREPARES => false,
-            PDO::ATTR_PERSISTENT => true, // Enable persistent connections
-            PDO::ATTR_TIMEOUT => 5, // Set connection timeout
+            PDO::ATTR_PERSISTENT => true,
+            PDO::ATTR_TIMEOUT => 5,
         ]
     );
 } catch (PDOException $e) {
