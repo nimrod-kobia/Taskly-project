@@ -193,4 +193,104 @@ document.addEventListener('DOMContentLoaded', () => {
   // === INITIAL LOAD ===
   // ✅ Only call fetchTasks if a token exists and is valid
   if (getToken()) fetchTasks();
+
+  // Render tasks in Kanban view
+const renderKanban = (tasks) => {
+  const kanbanEl = document.getElementById('kanbanView');
+  if (!kanbanEl) return;
+
+  // Clear previous content
+  kanbanEl.innerHTML = '';
+
+  // Group tasks by status
+  const statusGroups = {
+    todo: [],
+    inprogress: [],
+    done: []
+  };
+
+  tasks.forEach(task => {
+    const status = task.status.toLowerCase();
+    if (statusGroups[status]) statusGroups[status].push(task);
+    else statusGroups.todo.push(task); // fallback
+  });
+
+  // Column labels
+  const columns = [
+    { key: 'todo', title: 'To Do', color: 'bg-primary' },
+    { key: 'inprogress', title: 'In Progress', color: 'bg-warning text-dark' },
+    { key: 'done', title: 'Done', color: 'bg-success' }
+  ];
+
+  // Build columns
+  const row = document.createElement('div');
+  row.className = 'row';
+
+  columns.forEach(col => {
+    const colDiv = document.createElement('div');
+    colDiv.className = 'col-md-4 mb-3';
+
+    const card = document.createElement('div');
+    card.className = 'card shadow-sm';
+
+    const cardHeader = document.createElement('div');
+    cardHeader.className = `card-header ${col.color} text-center`;
+    cardHeader.textContent = `${col.title} (${statusGroups[col.key].length})`;
+
+    const cardBody = document.createElement('div');
+    cardBody.className = 'card-body';
+    
+    // Render tasks
+    statusGroups[col.key].forEach(task => {
+      const taskCard = document.createElement('div');
+      taskCard.className = 'card mb-2';
+      taskCard.innerHTML = `
+        <div class="card-body p-2">
+          <h6 class="card-title mb-1">${task.title}</h6>
+          <p class="card-text mb-1 small">${task.description || ''}</p>
+          <p class="card-text mb-0 small text-muted">Due: ${task.due_date || 'N/A'}</p>
+        </div>
+      `;
+      cardBody.appendChild(taskCard);
+    });
+
+    card.appendChild(cardHeader);
+    card.appendChild(cardBody);
+    colDiv.appendChild(card);
+    row.appendChild(colDiv);
+  });
+
+  kanbanEl.appendChild(row);
+};
+
+// === VIEW TOGGLE ===
+const viewSelect = document.getElementById('viewSelect');
+
+viewSelect.addEventListener('change', () => {
+  const listView = document.getElementById('listView');
+  const kanbanView = document.getElementById('kanbanView');
+
+  switch (viewSelect.value) {
+    case 'list':
+      listView.style.display = '';
+      kanbanView.style.display = 'none';
+      break;
+    case 'kanban':
+      listView.style.display = 'none';
+      kanbanView.style.display = '';
+      renderKanban(tasks); // render Kanban with current tasks
+      break;
+    default:
+      listView.style.display = '';
+      kanbanView.style.display = 'none';
+      break;
+  }
+});
+
+if (viewSelect.value === 'kanban') {
+  renderKanban(tasks);
+}
+
+
+
 });
