@@ -5,7 +5,7 @@ const supabase = require('../config/supabase');
  * Middleware to authenticate user using JWT token
  * Expects Authorization header with Bearer token
  */
-const authenticateUser = async (req, res, next) => {
+const authenticateUser = async (req, res, next) => { 
   try {
     // Extract token from Authorization header
     const authHeader = req.headers.authorization;
