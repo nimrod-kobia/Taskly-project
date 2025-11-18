@@ -4,7 +4,7 @@ require __DIR__ . '/../db.php';
 require __DIR__ . '/../config.php';
 require __DIR__ . '/../vendor/autoload.php';
 
-header('Content-Type: application/json');
+header('Content-Type: application/json'); 
 
 // JWT
 $authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
