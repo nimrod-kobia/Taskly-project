@@ -6,7 +6,7 @@ $config = require __DIR__ . '/config.php';
 
 require_once __DIR__ . '/controllers/AuthController.php';
 require_once __DIR__ . '/controllers/TaskController.php';
-require_once __DIR__ . '/middleware/AuthMiddleware.php';
+require_once __DIR__ . '/middleware/AuthMiddleware.php'; 
 
 $authCtrl = new AuthController($pdo, $config['jwt']);
 $taskCtrl = new TaskController($pdo, $config['jwt'], $config['mail']);
