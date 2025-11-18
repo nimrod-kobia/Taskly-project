@@ -1,0 +1,9 @@
+# Set index.html as the default directory index
+DirectoryIndex index.html
+
+# Enable rewrite engine
+RewriteEngine On
+
+# Redirect to index.html if accessing the frontend directory root
+RewriteCond %{REQUEST_URI} ^/Taskly-project/frontend/?$
+RewriteRule ^$ index.html [L]

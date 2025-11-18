@@ -1,16 +1,13 @@
 // profile.js
-document.addEventListener('DOMContentLoaded', () => {
-
+document.addEventListener('DOMContentLoaded', async () => {
   const tasksCompletedEl = document.getElementById('tasksCompleted');
   const tasksPendingEl = document.getElementById('tasksPending');
   const userNameEl = document.getElementById('userName');
   const userEmailEl = document.getElementById('userEmail');
   const memberSinceEl = document.getElementById('memberSince');
-  const ctx = document.getElementById('tasksChart')?.getContext('2d');
-  let tasksChart;
 
   // ===== JWT Helpers =====
-  const getToken = () => localStorage.getItem('jwt');
+  const getToken = () => localStorage.getItem('jwt') || sessionStorage.getItem('jwt');
 
   const getCurrentUser = () => {
     const token = getToken();
@@ -44,48 +41,26 @@ document.addEventListener('DOMContentLoaded', () => {
       const data = await res.json();
       const tasks = Array.isArray(data.tasks) ? data.tasks : Object.values(data.tasks);
 
-      const completed = tasks.filter(t => t.status.toLowerCase() === 'done').length;
-      const pending = tasks.length - completed;
+      // Calculate statistics
+      const completed = tasks.filter(t => t.status?.toLowerCase() === 'done').length;
+      const inProgress = tasks.filter(t => t.status?.toLowerCase() === 'in progress').length;
+      const pending = tasks.filter(t => !t.status || t.status?.toLowerCase() === 'pending' || t.status?.toLowerCase() === 'to do').length;
+      const highPriority = tasks.filter(t => t.priority?.toLowerCase() === 'high').length;
 
+      // Update existing stats
       tasksCompletedEl.textContent = completed;
       tasksPendingEl.textContent = pending;
 
-      // Chart: tasks per day
-      const dayMap = {};
-      tasks.forEach(t => {
-        const day = new Date(t.created_at).toLocaleDateString();
-        if (!dayMap[day]) dayMap[day] = { completed: 0, pending: 0 };
-        t.status.toLowerCase() === 'done' ? dayMap[day].completed++ : dayMap[day].pending++;
-      });
+      // Update new stat cards
+      const statsCompleted = document.getElementById('statsCompleted');
+      const statsInProgress = document.getElementById('statsInProgress');
+      const statsPending = document.getElementById('statsPending');
+      const statsHighPriority = document.getElementById('statsHighPriority');
 
-      const labels = Object.keys(dayMap);
-      const completedData = labels.map(d => dayMap[d].completed);
-      const pendingData = labels.map(d => dayMap[d].pending);
-
-      if (ctx) {
-        if (tasksChart) {
-          tasksChart.data.labels = labels;
-          tasksChart.data.datasets[0].data = completedData;
-          tasksChart.data.datasets[1].data = pendingData;
-          tasksChart.update();
-        } else {
-          tasksChart = new Chart(ctx, {
-            type: 'bar',
-            data: {
-              labels,
-              datasets: [
-                { label: 'Completed', data: completedData, backgroundColor: 'rgba(40,167,69,0.8)' },
-                { label: 'Pending', data: pendingData, backgroundColor: 'rgba(220,53,69,0.8)' }
-              ]
-            },
-            options: {
-              responsive: true,
-              plugins: { legend: { position: 'top' }, title: { display: true, text: 'Tasks Overview' } },
-              scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } }
-            }
-          });
-        }
-      }
+      if (statsCompleted) statsCompleted.textContent = completed;
+      if (statsInProgress) statsInProgress.textContent = inProgress;
+      if (statsPending) statsPending.textContent = pending;
+      if (statsHighPriority) statsHighPriority.textContent = highPriority;
 
     } catch (err) {
       console.error('Error fetching tasks for profile:', err);
@@ -164,6 +139,63 @@ document.addEventListener('DOMContentLoaded', () => {
       alert('Server error while updating account.');
     }
   });
+
+  // ===== Profile Photo Upload =====
+  const changePhotoBtn = document.getElementById('changePhotoBtn');
+  const removePhotoBtn = document.getElementById('removePhotoBtn');
+  const photoInput = document.getElementById('photoInput');
+  const profilePicture = document.getElementById('profilePicture');
+
+  // Trigger file input when change photo button is clicked
+  changePhotoBtn?.addEventListener('click', () => {
+    photoInput.click();
+  });
+
+  // Handle file selection
+  photoInput?.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Please select a valid image file.');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image size should not exceed 5MB.');
+      return;
+    }
+
+    // Read and display the image
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      profilePicture.src = event.target.result;
+      
+      // Store in localStorage for persistence
+      localStorage.setItem('profilePhoto', event.target.result);
+      
+      // Show remove button
+      removePhotoBtn.style.display = 'inline-block';
+    };
+    reader.readAsDataURL(file);
+  });
+
+  // Handle photo removal
+  removePhotoBtn?.addEventListener('click', () => {
+    profilePicture.src = 'Assets/profile-holder.png';
+    localStorage.removeItem('profilePhoto');
+    removePhotoBtn.style.display = 'none';
+    photoInput.value = '';
+  });
+
+  // Load saved profile photo on page load
+  const savedPhoto = localStorage.getItem('profilePhoto');
+  if (savedPhoto) {
+    profilePicture.src = savedPhoto;
+    removePhotoBtn.style.display = 'inline-block';
+  }
 
   // ===== Initial load & auto-refresh every 5s =====
   window.profileRefresh();

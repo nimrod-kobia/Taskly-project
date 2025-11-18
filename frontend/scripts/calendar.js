@@ -1,9 +1,5 @@
-import { setupNavbarAuth } from './main.js';
-
 document.addEventListener('DOMContentLoaded', async () => {
-  await setupNavbarAuth();
-
-  const getToken = () => localStorage.getItem('jwt');
+  const getToken = () => localStorage.getItem('jwt') || sessionStorage.getItem('jwt');
 
   // Redirect if no token
   if (!getToken()) {
@@ -48,6 +44,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   const calendarEl = document.getElementById('calendar');
   const calendar = new FullCalendar.Calendar(calendarEl, {
     initialView: 'dayGridMonth',
+    height: 600,
+    aspectRatio: 1.5,
+    handleWindowResize: true,
+    windowResizeDelay: 100,
+    headerToolbar: {
+      left: 'prev,next today',
+      center: 'title',
+      right: 'dayGridMonth,timeGridWeek,timeGridDay'
+    },
     headerToolbar: {
       left: 'prev,next today',
       center: 'title',

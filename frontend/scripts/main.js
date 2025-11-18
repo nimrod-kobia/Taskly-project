@@ -1,10 +1,17 @@
 /**
- * Get current logged-in user from localStorage
+ * Get current logged-in user from localStorage or sessionStorage
  */
 export function getCurrentUser() {
   try {
-    const user = JSON.parse(localStorage.getItem('user'));
-    return user || null;
+    // Check localStorage first (remember me)
+    let user = localStorage.getItem('user');
+    if (user) return JSON.parse(user);
+    
+    // Check sessionStorage (no remember me)
+    user = sessionStorage.getItem('user');
+    if (user) return JSON.parse(user);
+    
+    return null;
   } catch (err) {
     console.error('Error fetching user:', err);
     return null;
@@ -26,9 +33,14 @@ export function setupNavbarAuth() {
       <button class="btn btn-danger" id="logoutBtn">Logout</button>
     `;
     document.getElementById('logoutBtn').addEventListener('click', () => {
-      // Clear token and user from localStorage
+      // Clear token and user from both storages
+      localStorage.removeItem('jwt');
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      localStorage.removeItem('rememberMe');
+      sessionStorage.removeItem('jwt');
+      sessionStorage.removeItem('token');
+      sessionStorage.removeItem('user');
       window.location.href = 'login.html';
     });
   } else {
@@ -49,7 +61,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     const html = await response.text();
     document.getElementById('navbar-placeholder').innerHTML = html;
 
-    setupNavbarAuth();  // Check login state immediately
+    // Use setTimeout to ensure DOM elements are ready
+    setTimeout(() => {
+      setupNavbarAuth();  // Check login state after DOM is ready
+    }, 100);
   } catch (err) {
     console.error('Navbar load error:', err);
   }

@@ -5,6 +5,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
 
   const email = document.getElementById('email').value.trim();
   const password = document.getElementById('password').value.trim();
+  const rememberMe = document.getElementById('rememberMe').checked;
 
   if (!email || !password) {
     alert('Please enter both email and password.');
@@ -32,8 +33,17 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
 
     if (response.ok && result.success) {
       // ✅ Save JWT and user info
-      localStorage.setItem('jwt', result.token);
-      localStorage.setItem('user', JSON.stringify(result.user));
+      if (rememberMe) {
+        // Save to localStorage for persistent login
+        localStorage.setItem('jwt', result.token);
+        localStorage.setItem('user', JSON.stringify(result.user));
+        localStorage.setItem('rememberMe', 'true');
+      } else {
+        // Save to sessionStorage for session-only login
+        sessionStorage.setItem('jwt', result.token);
+        sessionStorage.setItem('user', JSON.stringify(result.user));
+        localStorage.removeItem('rememberMe');
+      }
 
       alert('Login successful! Redirecting to tasks...');
       window.location.href = 'tasks.html';
@@ -50,7 +60,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
 
 // ✅ Auto redirect if already logged in (but skip if you're already on login page)
 window.addEventListener('DOMContentLoaded', () => {
-  const token = localStorage.getItem('jwt');
+  const token = localStorage.getItem('jwt') || sessionStorage.getItem('jwt');
 
   // Stop auto-redirect if you’re literally on login.html
   if (window.location.pathname.includes('login.html')) {
