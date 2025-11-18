@@ -10,7 +10,7 @@ const authenticateUser = async (req, res, next) => {
     // Extract token from Authorization header
     const authHeader = req.headers.authorization;
     
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) { 
       return res.status(401).json({ 
         error: 'No token provided',
         message: 'Authorization header with Bearer token is required'
