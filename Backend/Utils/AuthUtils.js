@@ -4,7 +4,7 @@ const supabase = require('../config/supabase');
 /**
  * Verify if a token is valid
  */
-const verifyToken = async (token) => {
+const verifyToken = async (token) => { 
   try {
     const { data: { user }, error } = await supabase.auth.getUser(token);
     

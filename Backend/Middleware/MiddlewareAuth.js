@@ -5,12 +5,12 @@ const supabase = require('../config/supabase');
  * Middleware to authenticate user using JWT token
  * Expects Authorization header with Bearer token
  */
-const authenticateUser = async (req, res, next) => {
+const authenticateUser = async (req, res, next) => { 
   try {
     // Extract token from Authorization header
     const authHeader = req.headers.authorization;
     
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) { 
       return res.status(401).json({ 
         error: 'No token provided',
         message: 'Authorization header with Bearer token is required'

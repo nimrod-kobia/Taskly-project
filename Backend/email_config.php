@@ -5,7 +5,7 @@ use PHPMailer\PHPMailer\Exception;
 require 'vendor/autoload.php';
 
 function sendVerificationEmail($email, $token) {
-    $mail = new PHPMailer(true);
+    $mail = new PHPMailer(true); 
 
     try {
         $mail->isSMTP();
