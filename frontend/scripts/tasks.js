@@ -1,7 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
 
   // === AUTH HELPERS ===
-  const getToken = () => localStorage.getItem('jwt');
+  const getToken = () => localStorage.getItem('jwt') || sessionStorage.getItem('jwt');
 
   const logout = () => {
     // Fully clear local & session storage
@@ -42,26 +42,36 @@ document.addEventListener('DOMContentLoaded', () => {
   // === FETCH TASKS ===
   const fetchTasks = async () => {
     const user = getCurrentUser();
-    if (!user) return;
+    if (!user) {
+      console.log('No user found, cannot fetch tasks');
+      return;
+    }
+
+    console.log('Fetching tasks for user:', user.user_id);
 
     try {
-      const res = await fetch('http://localhost:8000/tasks/get_tasks.php', {
+      const res = await fetch(`http://localhost:8000/tasks.php?user_id=${user.user_id}`, {
         headers: { 'Authorization': `Bearer ${getToken()}` }
       });
 
+      console.log('Response status:', res.status);
       const data = await res.json();
+      console.log('Response data:', data);
 
       if (!res.ok) {
         console.error('Fetch tasks error:', data);
+        alert('Failed to load tasks: ' + (data.message || 'Unknown error'));
         return;
       }
 
       tasks = Array.isArray(data.tasks) ? data.tasks : Object.values(data.tasks);
+      console.log('Tasks to render:', tasks.length);
       renderTasks(tasks);
       if (window.profileRefresh) window.profileRefresh();
 
     } catch (err) {
       console.error('Error fetching tasks:', err);
+      alert('Server error while loading tasks: ' + err.message);
     }
   };
 
@@ -81,14 +91,18 @@ document.addEventListener('DOMContentLoaded', () => {
       };
 
       const editId = taskForm.dataset.editId;
+      const user = getCurrentUser();
+      if (!user) return;
+
+      if (editId) {
+        taskData.id = editId;
+      } else {
+        taskData.user_id = user.user_id;
+      }
 
       try {
-        const url = editId
-          ? `http://localhost:8000/tasks/update_task.php?id=${editId}`
-          : 'http://localhost:8000/tasks/create_task.php';
-
-        const res = await fetch(url, {
-          method: 'POST',
+        const res = await fetch('http://localhost:8000/tasks.php', {
+          method: editId ? 'PUT' : 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${getToken()}`
@@ -106,7 +120,7 @@ document.addEventListener('DOMContentLoaded', () => {
           delete taskForm.dataset.editId;
           fetchTasks();
         } else {
-          alert(data.error || 'Failed to save task.');
+          alert(data.message || data.error || 'Failed to save task.');
         }
 
       } catch (err) {
@@ -121,7 +135,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!confirm('Delete this task?')) return;
 
     try {
-      const res = await fetch(`http://localhost:8000/tasks/delete_task.php?id=${id}`, {
+      const res = await fetch(`http://localhost:8000/tasks.php?id=${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${getToken()}` }
       });
@@ -136,15 +150,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // === RENDER TASKS ===
   const renderTasks = tasks => {
+    console.log('Rendering tasks:', tasks);
     const tbody = document.getElementById('taskList');
-    if (!tbody) return;
+    if (!tbody) {
+      console.error('taskList element not found!');
+      return;
+    }
     tbody.innerHTML = '';
 
     if (!tasks.length) {
+      console.log('No tasks to display');
       tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted">No tasks found</td></tr>`;
       return;
     }
 
+    console.log('Rendering', tasks.length, 'tasks');
     tasks.forEach(task => {
       const tr = document.createElement('tr');
       tr.innerHTML = `
@@ -155,6 +175,9 @@ document.addEventListener('DOMContentLoaded', () => {
         <td>${task.status || ''}</td>
         <td>
           <button class="btn btn-sm btn-primary edit-btn" data-id="${task.id}">Edit</button>
+          <button class="btn btn-sm btn-info share-btn" data-id="${task.id}">
+            <i class="bi bi-share"></i> Share
+          </button>
           <button class="btn btn-sm btn-danger delete-btn" data-id="${task.id}">Delete</button>
         </td>
       `;
@@ -163,6 +186,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     tbody.querySelectorAll('.edit-btn').forEach(btn =>
       btn.addEventListener('click', () => openEditModal(btn.dataset.id))
+    );
+
+    tbody.querySelectorAll('.share-btn').forEach(btn =>
+      btn.addEventListener('click', () => openShareModal(btn.dataset.id))
     );
 
     tbody.querySelectorAll('.delete-btn').forEach(btn =>
@@ -312,7 +339,58 @@ const filterTasks = () => {
   const searchInput = document.getElementById('searchInput');
   searchInput.addEventListener('input', filterTasks);
 
+  // === SHARE TASK FUNCTIONALITY ===
+  const openShareModal = (taskId) => {
+    document.getElementById('shareTaskId').value = taskId;
+    document.getElementById('shareEmail').value = '';
+    const modal = new bootstrap.Modal(document.getElementById('shareModal'));
+    modal.show();
+  };
 
+  // Share task button handler
+  const shareTaskBtn = document.getElementById('shareTaskBtn');
+  if (shareTaskBtn) {
+    shareTaskBtn.addEventListener('click', async () => {
+      const taskId = document.getElementById('shareTaskId').value;
+      const email = document.getElementById('shareEmail').value.trim();
 
+      if (!email) {
+        alert('Please enter an email address');
+        return;
+      }
+
+      if (!email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+        alert('Please enter a valid email address');
+        return;
+      }
+
+      try {
+        const res = await fetch('http://localhost:8000/share_task.php', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${getToken()}`
+          },
+          body: JSON.stringify({
+            task_id: parseInt(taskId),
+            shared_with_email: email
+          })
+        });
+
+        const data = await res.json();
+
+        if (res.ok && data.success) {
+          alert('Task shared successfully!');
+          const modal = bootstrap.Modal.getInstance(document.getElementById('shareModal'));
+          if (modal) modal.hide();
+        } else {
+          alert(data.message || 'Failed to share task');
+        }
+      } catch (err) {
+        console.error('Share task error:', err);
+        alert('Server error while sharing task');
+      }
+    });
+  }
 
 });

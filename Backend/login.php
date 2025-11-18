@@ -3,6 +3,10 @@
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
+// Load dependencies
+require_once __DIR__ . '/vendor/autoload.php';
+use Firebase\JWT\JWT;
+
 // CORS headers
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: POST, OPTIONS");
@@ -39,8 +43,9 @@ try {
     $email = trim($data['email']);
     $password = $data['password'];
     
-    // Load database connection
+    // Load database connection and config
     require_once __DIR__ . '/db.php';
+    $config = require __DIR__ . '/config.php';
     
     // Find user by email (include full_name)
     $stmt = $pdo->prepare("SELECT id, email, password, full_name FROM users WHERE email = ?");
@@ -56,11 +61,22 @@ try {
         throw new Exception('Invalid email or password');
     }
     
+    // Generate JWT token
+    $payload = [
+        'user_id' => $user['id'],
+        'email' => $user['email'],
+        'iat' => time(),
+        'exp' => time() + (86400 * 7) // 7 days
+    ];
+    
+    $jwt = JWT::encode($payload, $config['jwt']['secret'], 'HS256');
+    
     // Login successful
     http_response_code(200);
     echo json_encode([
         'success' => true,
         'message' => 'Login successful',
+        'token' => $jwt,
         'user' => [
             'id' => $user['id'],
             'email' => $user['email'],

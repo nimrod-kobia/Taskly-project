@@ -4,6 +4,10 @@
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
+// Load dependencies
+require_once __DIR__ . '/vendor/autoload.php';
+use Firebase\JWT\JWT;
+
 // CORS headers
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: POST, GET, OPTIONS");
@@ -56,8 +60,9 @@ try {
         throw new Exception('Full name must be at least 2 characters');
     }
     
-    // Load database connection
+    // Load database connection and config
     require_once __DIR__ . '/db.php';
+    $config = require __DIR__ . '/config.php';
     
     // Check if user already exists
     $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
@@ -78,11 +83,22 @@ try {
     $stmt->execute([$email, $hashedPassword, $fullName]);
     $result = $stmt->fetch(PDO::FETCH_ASSOC);
     
+    // Generate JWT token
+    $payload = [
+        'user_id' => $result['id'],
+        'email' => $result['email'],
+        'iat' => time(),
+        'exp' => time() + (86400 * 7) // 7 days
+    ];
+    
+    $jwt = JWT::encode($payload, $config['jwt']['secret'], 'HS256');
+    
     // Success response
     http_response_code(201);
     echo json_encode([
         'success' => true,
         'message' => 'Registration successful',
+        'token' => $jwt,
         'user' => [
             'id' => $result['id'],
             'email' => $result['email'],

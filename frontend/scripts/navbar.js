@@ -169,9 +169,12 @@ export function setupNavbarAuth() {
       setInterval(loadNotifications, 30000);
     }
     
-    // Show auth-required nav items
+    // Show auth-required nav items and hide guest-only items
     document.querySelectorAll('.auth-required').forEach(item => {
       item.style.display = 'block';
+    });
+    document.querySelectorAll('.guest-only').forEach(item => {
+      item.style.display = 'none';
     });
     
     document.getElementById('logoutBtn').addEventListener('click', () => {
@@ -217,9 +220,12 @@ export function setupNavbarAuth() {
       notificationDropdown.style.display = 'none';
     }
 
-    // Hide auth-required nav items
+    // Hide auth-required nav items and show guest-only items
     document.querySelectorAll('.auth-required').forEach(item => {
       item.style.display = 'none';
+    });
+    document.querySelectorAll('.guest-only').forEach(item => {
+      item.style.display = 'block';
     });
   }
 }

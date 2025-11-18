@@ -1,11 +1,19 @@
 // ✅ login.js
 
-document.getElementById('loginForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
+document.addEventListener('DOMContentLoaded', () => {
+  const loginForm = document.getElementById('loginForm');
+  
+  if (!loginForm) {
+    console.error('Login form not found');
+    return;
+  }
 
-  const email = document.getElementById('email').value.trim();
-  const password = document.getElementById('password').value.trim();
-  const rememberMe = document.getElementById('rememberMe').checked;
+  loginForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value.trim();
+    const rememberMe = document.getElementById('rememberMe').checked;
 
   if (!email || !password) {
     alert('Please enter both email and password.');
@@ -13,7 +21,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
   }
 
   try {
-    const response = await fetch('http://localhost:8000/auth/login.php', {
+    const response = await fetch('http://localhost:8000/login.php', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password })
@@ -55,11 +63,9 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
     console.error('Network or server error:', err);
     alert('Server error. Please try again later.');
   }
-});
+  });
 
-
-// ✅ Auto redirect if already logged in (but skip if you're already on login page)
-window.addEventListener('DOMContentLoaded', () => {
+  // ✅ Auto redirect if already logged in (but skip if you're already on login page)
   const token = localStorage.getItem('jwt') || sessionStorage.getItem('jwt');
 
   // Stop auto-redirect if you’re literally on login.html

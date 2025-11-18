@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Auth Flow</title>
+</head>
+<body>
+    <h1>Authentication Test</h1>
+    <button onclick="testLogin()">Test Login</button>
+    <button onclick="testGetTasks()">Test Get Tasks</button>
+    <button onclick="testCreateTask()">Test Create Task</button>
+    <button onclick="clearAuth()">Clear Auth</button>
+    <pre id="output"></pre>
+
+    <script>
+        function log(message) {
+            const output = document.getElementById('output');
+            output.textContent += message + '\n';
+            console.log(message);
+        }
+
+        async function testLogin() {
+            log('=== Testing Login ===');
+            try {
+                const response = await fetch('http://localhost:8000/login.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        email: 'test@example.com', 
+                        password: 'test123' 
+                    })
+                });
+                
+                const result = await response.json();
+                log('Login Response: ' + JSON.stringify(result, null, 2));
+                
+                if (result.success && result.token) {
+                    localStorage.setItem('jwt', result.token);
+                    localStorage.setItem('user', JSON.stringify(result.user));
+                    log('✅ Token saved to localStorage');
+                    
+                    // Decode token
+                    const payload = JSON.parse(atob(result.token.split('.')[1]));
+                    log('Token Payload: ' + JSON.stringify(payload, null, 2));
+                } else {
+                    log('❌ Login failed');
+                }
+            } catch (err) {
+                log('❌ Error: ' + err.message);
+            }
+        }
+
+        async function testGetTasks() {
+            log('\n=== Testing Get Tasks ===');
+            const token = localStorage.getItem('jwt');
+            
+            if (!token) {
+                log('❌ No token found. Login first!');
+                return;
+            }
+            
+            try {
+                const payload = JSON.parse(atob(token.split('.')[1]));
+                const userId = payload.user_id;
+                log('User ID from token: ' + userId);
+                
+                const response = await fetch(`http://localhost:8000/tasks.php?user_id=${userId}`);
+                const result = await response.json();
+                
+                log('Tasks Response: ' + JSON.stringify(result, null, 2));
+                log(`✅ Found ${result.tasks.length} tasks`);
+            } catch (err) {
+                log('❌ Error: ' + err.message);
+            }
+        }
+
+        async function testCreateTask() {
+            log('\n=== Testing Create Task ===');
+            const token = localStorage.getItem('jwt');
+            
+            if (!token) {
+                log('❌ No token found. Login first!');
+                return;
+            }
+            
+            try {
+                const payload = JSON.parse(atob(token.split('.')[1]));
+                const userId = payload.user_id;
+                
+                const taskData = {
+                    user_id: userId,
+                    title: 'Test Task ' + new Date().toLocaleTimeString(),
+                    description: 'Testing task creation',
+                    priority: 'high',
+                    status: 'todo'
+                };
+                
+                log('Creating task: ' + JSON.stringify(taskData, null, 2));
+                
+                const response = await fetch('http://localhost:8000/tasks.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(taskData)
+                });
+                
+                const result = await response.json();
+                log('Create Response: ' + JSON.stringify(result, null, 2));
+                
+                if (result.success) {
+                    log('✅ Task created successfully');
+                } else {
+                    log('❌ Task creation failed');
+                }
+            } catch (err) {
+                log('❌ Error: ' + err.message);
+            }
+        }
+
+        function clearAuth() {
+            localStorage.removeItem('jwt');
+            localStorage.removeItem('user');
+            sessionStorage.clear();
+            log('\n✅ Auth cleared');
+        }
+
+        // Check auth on load
+        window.addEventListener('DOMContentLoaded', () => {
+            const token = localStorage.getItem('jwt');
+            if (token) {
+                try {
+                    const payload = JSON.parse(atob(token.split('.')[1]));
+                    log('Found existing token for user_id: ' + payload.user_id);
+                } catch (e) {
+                    log('Invalid token in storage');
+                }
+            } else {
+                log('No token found in storage');
+            }
+        });
+    </script>
+</body>
+</html>
