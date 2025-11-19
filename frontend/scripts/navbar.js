@@ -140,7 +140,7 @@ function getTimeAgo(dateString) {
 async function markNotificationRead(notificationId) {
   try {
     const token = localStorage.getItem('jwt') || sessionStorage.getItem('jwt');
-    await fetch(`http://localhost:8000/tasks/notifications.php?id=${notificationId}`, {
+    await fetch(`http://localhost:8000/reminder.php?id=${notificationId}`, {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${token}`
@@ -208,7 +208,7 @@ export function setupNavbarAuth() {
         e.stopPropagation();
         try {
           const token = localStorage.getItem('jwt') || sessionStorage.getItem('jwt');
-          await fetch('http://localhost:8000/tasks/notifications.php', {
+          await fetch('http://localhost:8000/reminder.php', {
             method: 'PUT',
             headers: {
               'Authorization': `Bearer ${token}`,

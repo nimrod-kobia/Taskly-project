@@ -39,10 +39,60 @@ try {
     exit;
 }
 
+// === Handle PUT request to mark as read ===
+if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
+    try {
+        $input = json_decode(file_get_contents('php://input'), true);
+        
+        if (isset($input['mark_all_read']) && $input['mark_all_read'] === true) {
+            // Mark all notifications as read
+            $stmt = $pdo->prepare("
+                UPDATE tasks 
+                SET viewed_at = NOW()
+                WHERE user_id = ? 
+                AND (status IS NULL OR status != 'completed')
+                AND due_date IS NOT NULL 
+                AND due_date >= CURRENT_DATE 
+                AND due_date <= CURRENT_DATE + INTERVAL '7 days'
+                AND (viewed_at IS NULL OR viewed_at < due_date)
+            ");
+            $stmt->execute([$userId]);
+            
+            echo json_encode([
+                'success' => true,
+                'message' => 'All notifications marked as read',
+                'affected_rows' => $stmt->rowCount()
+            ]);
+        } elseif (isset($_GET['id'])) {
+            // Mark single notification as read
+            $taskId = (int)$_GET['id'];
+            $stmt = $pdo->prepare("
+                UPDATE tasks 
+                SET viewed_at = NOW()
+                WHERE id = ? AND user_id = ?
+            ");
+            $stmt->execute([$taskId, $userId]);
+            
+            echo json_encode([
+                'success' => true,
+                'message' => 'Notification marked as read'
+            ]);
+        }
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode([
+            'success' => false,
+            'error' => 'Server error',
+            'details' => $e->getMessage()
+        ]);
+    }
+    exit;
+}
+
 // === Get Notifications ===
 try {
     if (isset($_GET['count']) && $_GET['count'] === 'true') {
-        // Count tasks due this week (PostgreSQL syntax)
+        // Count UNREAD tasks due this week (where viewed_at IS NULL)
         $stmt = $pdo->prepare("
             SELECT COUNT(*) as count 
             FROM tasks 
@@ -51,6 +101,7 @@ try {
             AND due_date IS NOT NULL 
             AND due_date >= CURRENT_DATE 
             AND due_date <= CURRENT_DATE + INTERVAL '7 days'
+            AND viewed_at IS NULL
         ");
         $stmt->execute([$userId]);
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -60,7 +111,7 @@ try {
             'count' => (int)($result['count'] ?? 0)
         ]);
     } else {
-        // Get tasks due this week (PostgreSQL syntax)
+        // Get tasks due this week
         $stmt = $pdo->prepare("
             SELECT 
                 id,
@@ -69,6 +120,7 @@ try {
                 due_date,
                 priority,
                 status,
+                viewed_at,
                 CASE 
                     WHEN DATE(due_date) = CURRENT_DATE THEN 'due_today'
                     WHEN due_date < CURRENT_DATE THEN 'overdue'
@@ -101,7 +153,7 @@ try {
             
             $notification['type'] = $notification['notification_type'];
             $notification['created_at'] = $notification['due_date'];
-            $notification['is_read'] = false;
+            $notification['is_read'] = !empty($notification['viewed_at']); // Check if viewed_at has a value
         }
         
         echo json_encode([
