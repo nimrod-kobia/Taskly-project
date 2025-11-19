@@ -85,7 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     try {
       // Fetch owned tasks
-      const res = await fetch(`http://localhost:8000/tasks.php?user_id=${user.user_id}&sort=${actualSort}`, {
+      const res = await fetch(`http://localhost:8000/tasks/get_tasks.php`, {
         headers: { 'Authorization': `Bearer ${getToken()}` }
       });
 
@@ -651,31 +651,92 @@ const filterTasks = () => {
   searchInput.addEventListener('input', filterTasks);
 
   // === SHARE TASK FUNCTIONALITY ===
+  let emailList = [];
+  
+  const updateEmailChips = () => {
+    const chipsContainer = document.getElementById('emailChips');
+    const emailCountSpan = document.getElementById('emailCount');
+    
+    chipsContainer.innerHTML = emailList.map((email, index) => `
+      <span class="badge bg-primary" style="padding: 8px 12px; font-size: 14px;">
+        ${email}
+        <i class="bi bi-x-circle ms-1" style="cursor: pointer;" onclick="removeEmail(${index})"></i>
+      </span>
+    `).join('');
+    
+    emailCountSpan.textContent = emailList.length;
+  };
+  
+  window.removeEmail = (index) => {
+    emailList.splice(index, 1);
+    updateEmailChips();
+  };
+  
+  const addEmail = () => {
+    const emailInput = document.getElementById('shareEmail');
+    const email = emailInput.value.trim();
+    
+    if (!email) return;
+    
+    if (!email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+      showNotification('Warning', 'Please enter a valid email address', 'warning');
+      return;
+    }
+    
+    if (emailList.includes(email)) {
+      showNotification('Warning', 'Email already added', 'warning');
+      return;
+    }
+    
+    emailList.push(email);
+    emailInput.value = '';
+    updateEmailChips();
+  };
+  
   const openShareModal = (taskId) => {
     document.getElementById('shareTaskId').value = taskId;
     document.getElementById('shareEmail').value = '';
+    const resultsDiv = document.getElementById('shareResults');
+    resultsDiv.classList.add('share-results-hidden');
+    resultsDiv.classList.remove('share-results-visible');
+    emailList = [];
+    updateEmailChips();
     const modal = new bootstrap.Modal(document.getElementById('shareModal'));
     modal.show();
   };
+  
+  // Add email button
+  const addEmailBtn = document.getElementById('addEmailBtn');
+  if (addEmailBtn) {
+    addEmailBtn.addEventListener('click', addEmail);
+  }
+  
+  // Enter key to add email
+  const shareEmailInput = document.getElementById('shareEmail');
+  if (shareEmailInput) {
+    shareEmailInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        addEmail();
+      }
+    });
+  }
 
   // Share task button handler
   const shareTaskBtn = document.getElementById('shareTaskBtn');
   if (shareTaskBtn) {
     shareTaskBtn.addEventListener('click', async () => {
       const taskId = document.getElementById('shareTaskId').value;
-      const email = document.getElementById('shareEmail').value.trim();
 
-      if (!email) {
-        showNotification('Warning', 'Please enter an email address', 'warning');
-        return;
-      }
-
-      if (!email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
-        showNotification('Warning', 'Please enter a valid email address', 'warning');
+      if (emailList.length === 0) {
+        showNotification('Warning', 'Please add at least one email address', 'warning');
         return;
       }
 
       try {
+        shareTaskBtn.disabled = true;
+        shareTaskBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Sharing...';
+        
         const res = await fetch('http://localhost:8000/share_task.php', {
           method: 'POST',
           headers: {
@@ -684,22 +745,53 @@ const filterTasks = () => {
           },
           body: JSON.stringify({
             task_id: parseInt(taskId),
-            shared_with_email: email
+            shared_with_emails: emailList
           })
         });
 
         const data = await res.json();
 
-        if (res.ok && data.success) {
-          showNotification('Success', 'Task shared successfully!', 'success');
-          const modal = bootstrap.Modal.getInstance(document.getElementById('shareModal'));
-          if (modal) modal.hide();
+        if (res.ok && data.results) {
+          // Display detailed results
+          const resultsContainer = document.getElementById('shareResultsList');
+          const resultsDiv = document.getElementById('shareResults');
+          
+          resultsContainer.innerHTML = data.results.map(result => `
+            <div class="alert alert-${result.success ? 'success' : 'danger'} py-2 mb-2">
+              <i class="bi bi-${result.success ? 'check-circle-fill' : 'x-circle-fill'}"></i>
+              <strong>${result.email}</strong>: ${result.message}
+              ${result.email_sent ? '<i class="bi bi-envelope-check ms-2" title="Email sent"></i>' : ''}
+            </div>
+          `).join('');
+          
+          resultsDiv.classList.remove('share-results-hidden');
+          resultsDiv.classList.add('share-results-visible');
+          
+          showNotification(
+            data.success_count > 0 ? 'Success' : 'Error',
+            data.message,
+            data.success_count > 0 ? 'success' : 'error'
+          );
+          
+          // Clear email list if all succeeded
+          if (data.failure_count === 0) {
+            emailList = [];
+            updateEmailChips();
+            setTimeout(() => {
+              const modal = bootstrap.Modal.getInstance(document.getElementById('shareModal'));
+              if (modal) modal.hide();
+              loadTasks(); // Reload tasks to show updated share count
+            }, 2000);
+          }
         } else {
           showNotification('Error', data.message || 'Failed to share task', 'error');
         }
       } catch (err) {
         console.error('Share task error:', err);
         showNotification('Error', 'Server error while sharing task', 'error');
+      } finally {
+        shareTaskBtn.disabled = false;
+        shareTaskBtn.innerHTML = '<i class="bi bi-send"></i> Share with <span id="emailCount">' + emailList.length + '</span> recipient(s)';
       }
     });
   }

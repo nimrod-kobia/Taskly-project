@@ -105,103 +105,146 @@ try {
         ]);
         
     } elseif ($method === 'POST') {
-        // Share a task with another user
+        // Share a task with one or multiple users
         $input = file_get_contents('php://input');
         $data = json_decode($input, true);
         
-        if (!$data || !isset($data['task_id']) || !isset($data['shared_with_email'])) {
-            throw new Exception('task_id and shared_with_email are required');
+        if (!$data || !isset($data['task_id'])) {
+            throw new Exception('task_id is required');
+        }
+        
+        // Support both single email and array of emails
+        $emails = [];
+        if (isset($data['shared_with_emails']) && is_array($data['shared_with_emails'])) {
+            $emails = $data['shared_with_emails'];
+        } elseif (isset($data['shared_with_email'])) {
+            $emails = [$data['shared_with_email']];
+        } else {
+            throw new Exception('shared_with_email or shared_with_emails is required');
         }
         
         $taskId = intval($data['task_id']);
-        $sharedWithEmail = trim($data['shared_with_email']);
         $userId = $user['user_id'];
         
-        // Validate email format
-        if (!filter_var($sharedWithEmail, FILTER_VALIDATE_EMAIL)) {
-            throw new Exception('Invalid email address');
-        }
-        
         // Verify task exists and belongs to current user
-        $stmt = $pdo->prepare("SELECT id FROM tasks WHERE id = ? AND user_id = ?");
+        $stmt = $pdo->prepare("SELECT id, title, description, due_date, priority FROM tasks WHERE id = ? AND user_id = ?");
         $stmt->execute([$taskId, $userId]);
-        if (!$stmt->fetch()) {
+        $taskInfo = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$taskInfo) {
             throw new Exception('Task not found or you do not have permission to share it');
         }
         
-        // Check if already shared with this email
-        $stmt = $pdo->prepare("SELECT id FROM shared_tasks WHERE task_id = ? AND shared_with_email = ?");
-        $stmt->execute([$taskId, $sharedWithEmail]);
-        if ($stmt->fetch()) {
-            throw new Exception('Task is already shared with this email');
-        }
+        // Get sender info for emails
+        $stmt = $pdo->prepare("SELECT full_name, email FROM users WHERE id = ?");
+        $stmt->execute([$userId]);
+        $senderInfo = $stmt->fetch(PDO::FETCH_ASSOC);
         
-        // Create share
-        $stmt = $pdo->prepare("
-            INSERT INTO shared_tasks (task_id, shared_by_user_id, shared_with_email, shared_at)
-            VALUES (?, ?, ?, NOW())
-            RETURNING id
-        ");
-        $stmt->execute([$taskId, $userId, $sharedWithEmail]);
-        $shareId = $stmt->fetchColumn();
+        // Process each email
+        $results = [];
+        $successCount = 0;
+        $failureCount = 0;
         
-        // Get task details and sender info for email
-        $stmt = $pdo->prepare("
-            SELECT t.title, t.description, t.due_date, t.priority, u.full_name, u.email
-            FROM tasks t
-            JOIN users u ON t.user_id = u.id
-            WHERE t.id = ?
-        ");
-        $stmt->execute([$taskId]);
-        $taskInfo = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        // Send email notification
-        try {
-            $config = require __DIR__ . '/config.php';
-            $mail = new PHPMailer(true);
+        foreach ($emails as $sharedWithEmail) {
+            $sharedWithEmail = trim($sharedWithEmail);
+            $result = [
+                'email' => $sharedWithEmail,
+                'success' => false,
+                'message' => '',
+                'share_id' => null,
+                'email_sent' => false
+            ];
             
-            // SMTP Configuration
-            $mail->isSMTP();
-            $mail->Host = $config['smtp']['host'];
-            $mail->SMTPAuth = true;
-            $mail->Username = $config['smtp']['email'];
-            $mail->Password = $config['smtp']['password'];
-            $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-            $mail->Port = $config['smtp']['port'];
+            // Validate email format
+            if (!filter_var($sharedWithEmail, FILTER_VALIDATE_EMAIL)) {
+                $result['message'] = 'Invalid email address format';
+                $results[] = $result;
+                $failureCount++;
+                continue;
+            }
             
-            // Recipients
-            $mail->setFrom($config['smtp']['email'], 'Taskly');
-            $mail->addAddress($sharedWithEmail);
+            // Check if already shared with this email
+            $stmt = $pdo->prepare("SELECT id FROM shared_tasks WHERE task_id = ? AND shared_with_email = ?");
+            $stmt->execute([$taskId, $sharedWithEmail]);
+            if ($stmt->fetch()) {
+                $result['message'] = 'Task already shared with this email';
+                $results[] = $result;
+                $failureCount++;
+                continue;
+            }
             
-            // Content
-            $mail->isHTML(true);
-            $mail->Subject = 'Task Shared with You - ' . $taskInfo['title'];
-            $mail->Body = "
-                <h2>Task Shared with You</h2>
-                <p><strong>{$taskInfo['full_name']}</strong> ({$taskInfo['email']}) has shared a task with you.</p>
-                <h3>Task Details:</h3>
-                <ul>
-                    <li><strong>Title:</strong> {$taskInfo['title']}</li>
-                    <li><strong>Description:</strong> " . ($taskInfo['description'] ?: 'None') . "</li>
-                    <li><strong>Priority:</strong> {$taskInfo['priority']}</li>
-                    <li><strong>Due Date:</strong> " . ($taskInfo['due_date'] ?: 'Not set') . "</li>
-                </ul>
-                <p><a href='http://localhost/taskly-project/frontend/shared-with-me.html' style='display:inline-block; background-color:#007bff; color:white; padding:10px 20px; text-decoration:none; border-radius:5px;'>View Shared Tasks</a></p>
-                <p style='margin-top:20px; font-size:12px; color:#666;'>Or copy this link: http://localhost/taskly-project/frontend/shared-with-me.html</p>
-            ";
+            try {
+                // Create share
+                $stmt = $pdo->prepare("
+                    INSERT INTO shared_tasks (task_id, shared_by_user_id, shared_with_email, shared_at)
+                    VALUES (?, ?, ?, NOW())
+                    RETURNING id
+                ");
+                $stmt->execute([$taskId, $userId, $sharedWithEmail]);
+                $shareId = $stmt->fetchColumn();
+                
+                $result['share_id'] = $shareId;
+                $result['success'] = true;
+                
+                // Send email notification
+                try {
+                    $config = require __DIR__ . '/config.php';
+                    $mail = new PHPMailer(true);
+                    
+                    // SMTP Configuration
+                    $mail->isSMTP();
+                    $mail->Host = $config['smtp']['host'];
+                    $mail->SMTPAuth = true;
+                    $mail->Username = $config['smtp']['email'];
+                    $mail->Password = $config['smtp']['password'];
+                    $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+                    $mail->Port = $config['smtp']['port'];
+                    
+                    // Recipients
+                    $mail->setFrom($config['smtp']['email'], 'Taskly');
+                    $mail->addAddress($sharedWithEmail);
+                    
+                    // Content
+                    $mail->isHTML(true);
+                    $mail->Subject = 'Task Shared with You - ' . $taskInfo['title'];
+                    $mail->Body = "
+                        <h2>Task Shared with You</h2>
+                        <p><strong>{$senderInfo['full_name']}</strong> ({$senderInfo['email']}) has shared a task with you.</p>
+                        <h3>Task Details:</h3>
+                        <ul>
+                            <li><strong>Title:</strong> {$taskInfo['title']}</li>
+                            <li><strong>Description:</strong> " . ($taskInfo['description'] ?: 'None') . "</li>
+                            <li><strong>Priority:</strong> {$taskInfo['priority']}</li>
+                            <li><strong>Due Date:</strong> " . ($taskInfo['due_date'] ?: 'Not set') . "</li>
+                        </ul>
+                        <p><a href='http://localhost/taskly-project/frontend/shared-with-me.html' style='display:inline-block; background-color:#007bff; color:white; padding:10px 20px; text-decoration:none; border-radius:5px;'>View Shared Tasks</a></p>
+                        <p style='margin-top:20px; font-size:12px; color:#666;'>Or copy this link: http://localhost/taskly-project/frontend/shared-with-me.html</p>
+                    ";
+                    
+                    $mail->send();
+                    $result['email_sent'] = true;
+                    $result['message'] = 'Shared successfully and email sent';
+                } catch (Exception $e) {
+                    error_log('Email sending failed for ' . $sharedWithEmail . ': ' . $e->getMessage());
+                    $result['email_sent'] = false;
+                    $result['message'] = 'Shared successfully but email notification failed';
+                }
+                
+                $successCount++;
+            } catch (PDOException $e) {
+                $result['message'] = 'Database error: ' . $e->getMessage();
+                $failureCount++;
+            }
             
-            $mail->send();
-            $emailSent = true;
-        } catch (Exception $e) {
-            error_log('Email sending failed: ' . $e->getMessage());
-            $emailSent = false;
+            $results[] = $result;
         }
         
         echo json_encode([
-            'success' => true,
-            'message' => 'Task shared successfully' . ($emailSent ? ' and notification sent' : ', but email notification failed'),
-            'share_id' => $shareId,
-            'email_sent' => $emailSent
+            'success' => $successCount > 0,
+            'message' => "Shared with {$successCount} out of " . count($emails) . " recipient(s)",
+            'results' => $results,
+            'success_count' => $successCount,
+            'failure_count' => $failureCount,
+            'total_count' => count($emails)
         ]);
         
     } elseif ($method === 'DELETE') {

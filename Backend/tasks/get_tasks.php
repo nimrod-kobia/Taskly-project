@@ -70,6 +70,21 @@ try {
     $stmt->execute([$userId]);
     $tasks = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
+    // Fetch shared recipients for each task
+    foreach ($tasks as &$task) {
+        $stmt = $pdo->prepare("
+            SELECT shared_with_email, shared_at, id as share_id
+            FROM shared_tasks
+            WHERE task_id = ?
+            ORDER BY shared_at DESC
+        ");
+        $stmt->execute([$task['id']]);
+        $task['shared_with'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $task['shared_count'] = count($task['shared_with']);
+        $task['has_been_shared'] = $task['shared_count'] > 0;
+    }
+    unset($task);
+    
     http_response_code(200);
     echo json_encode([
         'success' => true,
