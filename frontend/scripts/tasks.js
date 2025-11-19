@@ -320,11 +320,26 @@ document.addEventListener('DOMContentLoaded', () => {
         statusBadge = '<span class="badge bg-secondary">To Do</span>';
       }
       
+      // Format due date properly
+      let dueDateDisplay = '';
+      if (task.due_date) {
+        try {
+          const dueDate = new Date(task.due_date);
+          dueDateDisplay = dueDate.toLocaleDateString('en-US', { 
+            year: 'numeric', 
+            month: 'short', 
+            day: 'numeric' 
+          });
+        } catch (e) {
+          dueDateDisplay = task.due_date;
+        }
+      }
+      
       tr.innerHTML = `
         <td><span class="badge bg-${scoreColor}">${score}</span></td>
         <td>${sharedIcon}${reminderIcon}${task.title}</td>
         <td>${task.description || ''}${sharedInfo}</td>
-        <td>${task.due_date || ''}</td>
+        <td>${dueDateDisplay || '<span class="text-muted">No deadline</span>'}</td>
         <td>${statusBadge}</td>
         <td>
           ${!task.isShared ? `<button class="btn btn-sm btn-primary edit-btn" data-id="${task.id}">Edit</button>` : ''}
