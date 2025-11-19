@@ -22,6 +22,17 @@
   <!-- Custom CSS -->
   <link rel="stylesheet" href="styles/style.css" />
 
+  <!-- Apply dark mode immediately to prevent flash -->
+  <script>
+    (function() {
+      const savedTheme = localStorage.getItem('theme');
+      if (savedTheme === 'dark') {
+        document.documentElement.classList.add('dark-mode');
+        document.body.classList.add('dark-mode');
+      }
+    })();
+  </script>
+
   <script>
     // Authentication guard - redirect to login if not authenticated
     (function() {

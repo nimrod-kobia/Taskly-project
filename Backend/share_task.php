@@ -67,6 +67,11 @@ try {
                 t.due_date,
                 t.priority,
                 t.status,
+                t.created_at,
+                t.effort,
+                t.urgency,
+                t.reminder_enabled,
+                t.reminder_time,
                 u.full_name as shared_by_name,
                 u.email as shared_by_email
             FROM shared_tasks st
@@ -93,7 +98,12 @@ try {
                     'description' => $row['description'],
                     'due_date' => $row['due_date'],
                     'priority' => $row['priority'],
-                    'status' => $row['status']
+                    'status' => $row['status'],
+                    'created_at' => $row['created_at'],
+                    'effort' => $row['effort'],
+                    'urgency' => $row['urgency'],
+                    'reminder_enabled' => $row['reminder_enabled'],
+                    'reminder_time' => $row['reminder_time']
                 ]
             ];
         }, $sharedTasks);

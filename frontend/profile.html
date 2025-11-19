@@ -11,6 +11,17 @@
   <link rel="stylesheet" href="styles/profile.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
+  <!-- Apply dark mode immediately to prevent flash -->
+  <script>
+    (function() {
+      const savedTheme = localStorage.getItem('theme');
+      if (savedTheme === 'dark') {
+        document.documentElement.classList.add('dark-mode');
+        document.body.classList.add('dark-mode');
+      }
+    })();
+  </script>
+
   <script>
     // Authentication guard - redirect to login if not authenticated
     (function() {
