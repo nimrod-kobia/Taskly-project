@@ -267,12 +267,25 @@ document.addEventListener('DOMContentLoaded', () => {
       
       const reminderIcon = task.reminder_enabled ? '<i class="bi bi-bell-fill text-warning" title="Reminder enabled"></i> ' : '';
       
+      // Normalize status and get proper display values
+      const status = (task.status || 'todo').toLowerCase();
+      let statusBadge = '';
+      
+      if (status === 'done') {
+        statusBadge = '<span class="badge bg-success">Done</span>';
+      } else if (status === 'inprogress') {
+        statusBadge = '<span class="badge bg-primary">In Progress</span>';
+      } else {
+        // Default to 'To Do' for 'todo', 'pending', or any other status
+        statusBadge = '<span class="badge bg-secondary">To Do</span>';
+      }
+      
       tr.innerHTML = `
         <td><span class="badge bg-${scoreColor}">${score}</span></td>
         <td>${reminderIcon}${task.title}</td>
         <td>${task.description || ''}</td>
         <td>${task.due_date || ''}</td>
-        <td><span class="badge bg-${task.status === 'done' ? 'success' : task.status === 'inprogress' ? 'primary' : 'secondary'}">${task.status || ''}</span></td>
+        <td>${statusBadge}</td>
         <td>
           <button class="btn btn-sm btn-primary edit-btn" data-id="${task.id}">Edit</button>
           <button class="btn btn-sm btn-info share-btn" data-id="${task.id}">
@@ -446,9 +459,18 @@ const renderKanban = (tasks) => {
   };
 
   tasks.forEach(task => {
-    const status = task.status.toLowerCase();
-    if (statusGroups[status]) statusGroups[status].push(task);
-    else statusGroups.todo.push(task); // fallback
+    // Normalize status - handle various formats
+    const status = (task.status || 'todo').toLowerCase().replace(/[^a-z]/g, '');
+    
+    // Map variations to standard status keys
+    if (status === 'done' || status === 'completed') {
+      statusGroups.done.push(task);
+    } else if (status === 'inprogress' || status === 'in progress' || status === 'progress') {
+      statusGroups.inprogress.push(task);
+    } else {
+      // Default to todo for 'todo', 'pending', or any other status
+      statusGroups.todo.push(task);
+    }
   });
 
   // Column labels

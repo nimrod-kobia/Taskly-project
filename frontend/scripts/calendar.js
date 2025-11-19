@@ -27,20 +27,45 @@ document.addEventListener('DOMContentLoaded', async () => {
       const payload = JSON.parse(atob(token.split('.')[1]));
       const userId = payload.user_id;
       
-      const res = await fetch(`http://localhost:8000/tasks.php?user_id=${userId}`, {
+      // Fetch owned tasks
+      const ownedRes = await fetch(`http://localhost:8000/tasks.php?user_id=${userId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      const data = await res.json();
-      if (!res.ok || !data.success) throw new Error(data.message || data.error || 'Failed to fetch tasks');
+      const ownedData = await ownedRes.json();
+      if (!ownedRes.ok || !ownedData.success) throw new Error(ownedData.message || ownedData.error || 'Failed to fetch tasks');
+      
+      // Fetch shared tasks
+      let sharedTasks = [];
+      try {
+        const sharedRes = await fetch('http://localhost:8000/share_task.php', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const sharedData = await sharedRes.json();
+        if (sharedRes.ok && sharedData.success) {
+          // Extract task data from shared tasks response
+          sharedTasks = (sharedData.shared_tasks || []).map(st => ({
+            ...st.task,
+            isShared: true,
+            sharedBy: st.shared_by_name,
+            sharedByEmail: st.shared_by_email
+          }));
+        }
+      } catch (sharedErr) {
+        console.warn('Could not fetch shared tasks:', sharedErr);
+      }
+      
+      // Combine owned and shared tasks
+      const allTasks = [...(ownedData.tasks || []), ...sharedTasks];
       
       // Map tasks to FullCalendar events
-      return (data.tasks || []).map(t => {
+      return allTasks.map(t => {
         const reminderIcon = t.reminder_enabled ? '🔔 ' : '';
+        const sharedIcon = t.isShared ? '👥 ' : '';
         return {
           id: t.id,
-          title: reminderIcon + t.title,
+          title: sharedIcon + reminderIcon + t.title,
           start: t.due_date || t.created_at,
-          color: getUrgencyColor(t.priority),
+          color: t.isShared ? '#17a2b8' : getUrgencyColor(t.priority), // Cyan for shared tasks
           extendedProps: {
             description: t.description,
             priority: t.priority,
@@ -48,7 +73,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             reminderEnabled: t.reminder_enabled,
             reminderTime: t.reminder_time,
             effort: t.effort,
-            urgency: t.urgency
+            urgency: t.urgency,
+            isShared: t.isShared || false,
+            sharedBy: t.sharedBy,
+            sharedByEmail: t.sharedByEmail
           }
         };
       });
@@ -348,10 +376,16 @@ function showTaskDetailsModal(event) {
     <div class="modal-dialog">
       <div class="modal-content">
         <div class="modal-header">
-          <h5 class="modal-title">${event.title.replace('🔔 ', '')}</h5>
+          <h5 class="modal-title">${event.title.replace('🔔 ', '').replace('👥 ', '')}</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
+          ${props.isShared ? `
+            <div class="alert alert-info">
+              <i class="bi bi-share"></i> <strong>Shared Task</strong>
+              <br><small>Shared by: ${props.sharedBy} (${props.sharedByEmail})</small>
+            </div>
+          ` : ''}
           <p><strong>Due Date:</strong> ${event.start.toLocaleDateString()}</p>
           ${event.start.toLocaleTimeString() !== '12:00:00 AM' ? `<p><strong>Time:</strong> ${event.start.toLocaleTimeString()}</p>` : ''}
           <p><strong>Priority:</strong> <span class="badge bg-${props.priority === 'high' ? 'danger' : props.priority === 'medium' ? 'warning' : 'success'}">${props.priority || 'medium'}</span></p>
@@ -359,7 +393,7 @@ function showTaskDetailsModal(event) {
           ${props.effort ? `<p><strong>Effort:</strong> ${props.effort} hours</p>` : ''}
           ${props.description ? `<p><strong>Description:</strong> ${props.description}</p>` : ''}
           ${props.reminderEnabled ? `
-            <div class="alert alert-info">
+            <div class="alert alert-warning">
               <i class="bi bi-bell-fill"></i> <strong>Reminder Enabled</strong>
               ${props.reminderTime ? `<br><small>Set for: ${new Date(props.reminderTime).toLocaleString()}</small>` : ''}
             </div>
@@ -367,7 +401,9 @@ function showTaskDetailsModal(event) {
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-          <a href="tasks.html" class="btn btn-primary">Edit in Tasks</a>
+          ${props.isShared ? 
+            '<a href="shared-with-me.html" class="btn btn-primary">View Shared Tasks</a>' : 
+            '<a href="tasks.html" class="btn btn-primary">Edit in Tasks</a>'}
         </div>
       </div>
     </div>
