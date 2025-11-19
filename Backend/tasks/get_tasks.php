@@ -63,8 +63,8 @@ try {
             status,
             due_date,
             created_at,
-            COALESCE(effort, 1) as effort,
-            COALESCE(urgency, 1) as urgency,
+            COALESCE(CAST(effort AS INTEGER), 1) as effort,
+            COALESCE(CAST(urgency AS INTEGER), 1) as urgency,
             -- Calculate priority score (1-3)
             CASE 
                 WHEN LOWER(priority) = 'high' THEN 3
@@ -82,7 +82,7 @@ try {
                 ELSE 0
             END as deadline_urgency,
             -- Total score: urgency + deadline_urgency + effort + priority_score
-            COALESCE(urgency, 1) + 
+            (COALESCE(CAST(urgency AS INTEGER), 1) + 
             CASE 
                 WHEN due_date IS NULL THEN 0
                 WHEN due_date < CURRENT_DATE THEN 5
@@ -92,12 +92,12 @@ try {
                 WHEN due_date <= CURRENT_DATE + INTERVAL '7 days' THEN 1
                 ELSE 0
             END + 
-            COALESCE(effort, 1) + 
+            COALESCE(CAST(effort AS INTEGER), 1) + 
             CASE 
                 WHEN LOWER(priority) = 'high' THEN 3
                 WHEN LOWER(priority) = 'medium' THEN 2
                 ELSE 1
-            END as score
+            END) as score
         FROM tasks 
         WHERE user_id = ?
         ORDER BY created_at DESC
