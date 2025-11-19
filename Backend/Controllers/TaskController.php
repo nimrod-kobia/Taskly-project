@@ -32,6 +32,28 @@ class TaskController {
             $stmt->execute([$userId, $title, $description, $due_date, $priority, $effort, $status]);
 
             $taskId = $stmt->fetchColumn();
+            
+            // Create notification if task is due within 24 hours
+            if ($due_date) {
+                $dueTime = strtotime($due_date);
+                $now = time();
+                $hoursUntilDue = ($dueTime - $now) / 3600;
+                
+                if ($hoursUntilDue > 0 && $hoursUntilDue <= 24) {
+                    require_once __DIR__ . '/../Utils/NotificationHelper.php';
+                    $helper = new NotificationHelper($this->pdo);
+                    $dueDate = date('M j, Y g:i A', $dueTime);
+                    $helper->createNotification(
+                        $userId,
+                        $taskId,
+                        'due_soon',
+                        'Task Due Soon',
+                        "Task '{$title}' is due on {$dueDate}",
+                        true
+                    );
+                }
+            }
+            
             return ['success' => true, 'task_id' => $taskId];
 
         } catch (\PDOException $e) {
@@ -50,6 +72,10 @@ class TaskController {
             
             return;
         }
+
+        // Check if status is changing to 'Done'
+        $oldStatus = $task['status'];
+        $newStatus = $data['status'] ?? $oldStatus;
 
         $fields = [];
         $values = [];
@@ -70,6 +96,21 @@ class TaskController {
         $sql = "UPDATE tasks SET " . implode(', ', $fields) . " WHERE id = ?";
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute($values);
+        
+        // Create completion notification if status changed to 'Done'
+        if ($oldStatus !== 'Done' && $newStatus === 'Done') {
+            require_once __DIR__ . '/../Utils/NotificationHelper.php';
+            $helper = new NotificationHelper($this->pdo);
+            $taskTitle = $data['title'] ?? $task['title'];
+            $helper->createNotification(
+                $userId,
+                $taskId,
+                'completed',
+                'Task Completed',
+                "Great job! You completed '{$taskTitle}'",
+                true
+            );
+        }
 
     }
 
@@ -87,36 +128,36 @@ class TaskController {
 
     // Get Tasks
     public function getTasks($userId, $filters = []) {
-    $sql = "SELECT * FROM tasks WHERE user_id = ?";
-    $params = [$userId];
+        $sql = "SELECT * FROM tasks WHERE user_id = ?";
+        $params = [$userId];
 
-    // optional status filter
-    if (isset($filters['status'])) {
-        $sql .= " AND status = ?";
-        $params[] = $filters['status'];
-    }
-
-    $stmt = $this->pdo->prepare($sql);
-    $stmt->execute($params);
-    $tasks = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-    // simple sorting: priority (High > Medium > Low), then due_date ascending
-    $priorityOrder = ['High' => 3, 'Medium' => 2, 'Low' => 1];
-
-    usort($tasks, function($a, $b) use ($priorityOrder) {
-        $pa = $priorityOrder[$a['priority']] ?? 0;
-        $pb = $priorityOrder[$b['priority']] ?? 0;
-
-        if ($pa === $pb) {
-            $da = $a['due_date'] ? strtotime($a['due_date']) : PHP_INT_MAX;
-            $db = $b['due_date'] ? strtotime($b['due_date']) : PHP_INT_MAX;
-            return $da <=> $db; // earliest due date first
+        // optional status filter
+        if (isset($filters['status'])) {
+            $sql .= " AND status = ?";
+            $params[] = $filters['status'];
         }
 
-        return $pb <=> $pa; // higher priority first
-    });
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+        $tasks = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    echo json_encode(['tasks' => $tasks]);
-}
+        // simple sorting: priority (High > Medium > Low), then due_date ascending
+        $priorityOrder = ['High' => 3, 'Medium' => 2, 'Low' => 1];
 
+        usort($tasks, function($a, $b) use ($priorityOrder) {
+            $pa = $priorityOrder[$a['priority']] ?? 0;
+            $pb = $priorityOrder[$b['priority']] ?? 0;
+
+            if ($pa === $pb) {
+                $da = $a['due_date'] ? strtotime($a['due_date']) : PHP_INT_MAX;
+                $db = $b['due_date'] ? strtotime($b['due_date']) : PHP_INT_MAX;
+                return $da <=> $db; // earliest due date first
+            }
+
+            return $pb <=> $pa; // higher priority first
+        });
+
+        http_response_code(200);
+        echo json_encode(['success' => true, 'tasks' => $tasks]);
+    }
 }
