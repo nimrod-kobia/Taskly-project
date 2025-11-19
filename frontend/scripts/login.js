@@ -53,7 +53,7 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.removeItem('rememberMe');
       }
 
-      alert('Login successful! Redirecting to tasks...');
+      // Automatically redirect without alert
       window.location.href = 'tasks.html';
     } else {
       alert(result.error || 'Login failed');
