@@ -1,24 +1,77 @@
 // ✅ login.js
 
+// Toast notification helper
+function showNotification(title, message, type = 'info') {
+  const container = document.getElementById('toastContainer');
+  if (!container) return;
+
+  const bgClass = type === 'success' ? 'bg-success' : 
+                  type === 'error' ? 'bg-danger' : 
+                  type === 'warning' ? 'bg-warning' : 'bg-primary';
+
+  const toastEl = document.createElement('div');
+  toastEl.className = `toast align-items-center text-white ${bgClass} border-0`;
+  toastEl.setAttribute('role', 'alert');
+  toastEl.setAttribute('aria-live', 'assertive');
+  toastEl.setAttribute('aria-atomic', 'true');
+  
+  toastEl.innerHTML = `
+    <div class="d-flex">
+      <div class="toast-body">
+        <strong>${title}</strong><br>${message}
+      </div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
+  `;
+  
+  container.appendChild(toastEl);
+  const toast = new bootstrap.Toast(toastEl, { delay: 3000 });
+  toast.show();
+  
+  toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   const loginForm = document.getElementById('loginForm');
+  const loginError = document.getElementById('loginError');
+  const loginErrorMsg = document.getElementById('loginErrorMsg');
+  const loginBtn = document.getElementById('loginBtn');
   
   if (!loginForm) {
     console.error('Login form not found');
     return;
   }
 
+  // Helper to show error
+  const showError = (message) => {
+    loginErrorMsg.textContent = message;
+    loginError.style.display = 'block';
+    loginBtn.disabled = false;
+    loginBtn.textContent = 'Log In';
+  };
+
+  // Helper to hide error
+  const hideError = () => {
+    loginError.style.display = 'none';
+  };
+
   loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
+    hideError();
 
     const email = document.getElementById('email').value.trim();
     const password = document.getElementById('password').value.trim();
     const rememberMe = document.getElementById('rememberMe').checked;
 
   if (!email || !password) {
-    alert('Please enter both email and password.');
+    showError('Please enter both email and password.');
+    showNotification('Validation Error', 'Please enter both email and password.', 'warning');
     return;
   }
+
+  // Disable button and show loading
+  loginBtn.disabled = true;
+  loginBtn.textContent = 'Logging in...';
 
   try {
     const response = await fetch('http://localhost:8000/login.php', {
@@ -35,7 +88,8 @@ document.addEventListener('DOMContentLoaded', () => {
       result = JSON.parse(text);
     } catch (err) {
       console.error('Server returned non-JSON:', text);
-      alert('Server error. Please check backend.');
+      showError('Server error. Please check backend.');
+      showNotification('Server Error', 'Please check backend.', 'error');
       return;
     }
 
@@ -56,12 +110,16 @@ document.addEventListener('DOMContentLoaded', () => {
       // Automatically redirect without alert
       window.location.href = 'tasks.html';
     } else {
-      alert(result.error || 'Login failed');
+      // Show specific error message
+      const errorMessage = result.error || result.message || 'Invalid email or password';
+      showError(errorMessage);
+      showNotification('Login Failed', errorMessage, 'error');
     }
 
   } catch (err) {
     console.error('Network or server error:', err);
-    alert('Server error. Please try again later.');
+    showError('Network error. Please try again later.');
+    showNotification('Network Error', 'Server error. Please try again later.', 'error');
   }
   });
 

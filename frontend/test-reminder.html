@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Reminder System - Taskly</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    .test-section { margin: 20px 0; padding: 20px; border: 1px solid #ddd; border-radius: 5px; }
+    .success { color: green; }
+    .error { color: red; }
+  </style>
+</head>
+<body>
+  <div class="container my-5">
+    <h1>🧪 Reminder System Test</h1>
+    <p>Use this page to test the reminder system functionality</p>
+
+    <div class="test-section">
+      <h3>1. Create Test Task with Reminder</h3>
+      <button class="btn btn-primary" onclick="createTestTask()">Create Task (Reminder in 1 min)</button>
+      <div id="createResult"></div>
+    </div>
+
+    <div class="test-section">
+      <h3>2. Check for Reminders</h3>
+      <button class="btn btn-info" onclick="checkReminders()">Check Reminders Now</button>
+      <div id="reminderResult"></div>
+    </div>
+
+    <div class="test-section">
+      <h3>3. Update Task Status</h3>
+      <input type="number" id="taskId" placeholder="Task ID" class="form-control mb-2" style="max-width: 200px;">
+      <button class="btn btn-success" onclick="markAsDone()">Mark as Done</button>
+      <div id="statusResult"></div>
+    </div>
+
+    <div class="test-section">
+      <h3>4. View All Tasks</h3>
+      <button class="btn btn-secondary" onclick="viewTasks()">View My Tasks</button>
+      <div id="tasksResult"></div>
+    </div>
+  </div>
+
+  <script>
+    // Get user ID from JWT token
+    function getUserId() {
+      const token = localStorage.getItem('jwt') || sessionStorage.getItem('jwt');
+      if (!token) {
+        alert('Please login first!');
+        window.location.href = 'login.html';
+        return null;
+      }
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      return payload.user_id;
+    }
+
+    function getToken() {
+      return localStorage.getItem('jwt') || sessionStorage.getItem('jwt');
+    }
+
+    async function createTestTask() {
+      const userId = getUserId();
+      if (!userId) return;
+
+      const resultDiv = document.getElementById('createResult');
+      
+      // Set reminder to 1 minute from now
+      const reminderTime = new Date(Date.now() + 60000);
+      const formattedTime = reminderTime.toISOString().slice(0, 19).replace('T', ' ');
+
+      try {
+        const res = await fetch('http://localhost:8000/tasks.php', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${getToken()}`
+          },
+          body: JSON.stringify({
+            user_id: userId,
+            title: 'TEST: Reminder Task ' + new Date().toLocaleTimeString(),
+            description: 'This is a test task with reminder set to 1 minute from now',
+            due_date: new Date(Date.now() + 3600000).toISOString().split('T')[0],
+            priority: 'high',
+            status: 'todo',
+            effort: 1,
+            urgency: 1,
+            reminder_enabled: true,
+            reminder_time: formattedTime
+          })
+        });
+
+        const data = await res.json();
+        if (data.success) {
+          resultDiv.innerHTML = `<div class="alert alert-success mt-2">
+            ✅ Task created successfully!<br>
+            Task ID: ${data.task.id}<br>
+            Reminder set for: ${formattedTime}<br>
+            Wait 1 minute and check reminders!
+          </div>`;
+        } else {
+          resultDiv.innerHTML = `<div class="alert alert-danger mt-2">❌ Error: ${data.message}</div>`;
+        }
+      } catch (err) {
+        resultDiv.innerHTML = `<div class="alert alert-danger mt-2">❌ Error: ${err.message}</div>`;
+      }
+    }
+
+    async function checkReminders() {
+      const userId = getUserId();
+      if (!userId) return;
+
+      const resultDiv = document.getElementById('reminderResult');
+
+      try {
+        const res = await fetch(`http://localhost:8000/check_reminders.php?user_id=${userId}`, {
+          headers: { 'Authorization': `Bearer ${getToken()}` }
+        });
+
+        const data = await res.json();
+        if (data.success) {
+          if (data.reminders.length > 0) {
+            let html = '<div class="alert alert-warning mt-2">⏰ Reminders Found!<ul>';
+            data.reminders.forEach(task => {
+              html += `<li><strong>${task.title}</strong> (ID: ${task.id}) - Due: ${task.due_date || 'N/A'}</li>`;
+            });
+            html += '</ul></div>';
+            resultDiv.innerHTML = html;
+          } else {
+            resultDiv.innerHTML = '<div class="alert alert-info mt-2">ℹ️ No reminders at this time</div>';
+          }
+        } else {
+          resultDiv.innerHTML = `<div class="alert alert-danger mt-2">❌ Error: ${data.message}</div>`;
+        }
+      } catch (err) {
+        resultDiv.innerHTML = `<div class="alert alert-danger mt-2">❌ Error: ${err.message}</div>`;
+      }
+    }
+
+    async function markAsDone() {
+      const taskId = document.getElementById('taskId').value;
+      if (!taskId) {
+        alert('Please enter a Task ID');
+        return;
+      }
+
+      const resultDiv = document.getElementById('statusResult');
+
+      try {
+        const res = await fetch('http://localhost:8000/tasks.php', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${getToken()}`
+          },
+          body: JSON.stringify({ id: parseInt(taskId), status: 'done' })
+        });
+
+        const data = await res.json();
+        if (data.success) {
+          resultDiv.innerHTML = `<div class="alert alert-success mt-2">✅ Task ${taskId} marked as done!</div>`;
+        } else {
+          resultDiv.innerHTML = `<div class="alert alert-danger mt-2">❌ Error: ${data.message}</div>`;
+        }
+      } catch (err) {
+        resultDiv.innerHTML = `<div class="alert alert-danger mt-2">❌ Error: ${err.message}</div>`;
+      }
+    }
+
+    async function viewTasks() {
+      const userId = getUserId();
+      if (!userId) return;
+
+      const resultDiv = document.getElementById('tasksResult');
+
+      try {
+        const res = await fetch(`http://localhost:8000/tasks.php?user_id=${userId}`, {
+          headers: { 'Authorization': `Bearer ${getToken()}` }
+        });
+
+        const data = await res.json();
+        if (data.success) {
+          let html = '<div class="mt-2"><table class="table table-sm"><thead><tr><th>ID</th><th>Title</th><th>Status</th><th>Reminder</th><th>Reminder Time</th></tr></thead><tbody>';
+          data.tasks.forEach(task => {
+            html += `<tr>
+              <td>${task.id}</td>
+              <td>${task.title}</td>
+              <td><span class="badge bg-${task.status === 'done' ? 'success' : task.status === 'inprogress' ? 'primary' : 'secondary'}">${task.status}</span></td>
+              <td>${task.reminder_enabled ? '🔔' : '—'}</td>
+              <td>${task.reminder_time || '—'}</td>
+            </tr>`;
+          });
+          html += '</tbody></table></div>';
+          resultDiv.innerHTML = html;
+        } else {
+          resultDiv.innerHTML = `<div class="alert alert-danger mt-2">❌ Error: ${data.message}</div>`;
+        }
+      } catch (err) {
+        resultDiv.innerHTML = `<div class="alert alert-danger mt-2">❌ Error: ${err.message}</div>`;
+      }
+    }
+
+    // Auto-check reminders every 30 seconds during test
+    setInterval(() => {
+      console.log('Auto-checking reminders...');
+      checkReminders();
+    }, 30000);
+  </script>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

@@ -47,18 +47,38 @@ try {
     require_once __DIR__ . '/db.php';
     $config = require __DIR__ . '/config.php';
     
+    // Validate email format first
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        http_response_code(400);
+        echo json_encode([
+            'success' => false,
+            'error' => 'Please enter a valid email address'
+        ]);
+        exit;
+    }
+    
     // Find user by email (include full_name)
     $stmt = $pdo->prepare("SELECT id, email, password, full_name FROM users WHERE email = ?");
     $stmt->execute([$email]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
     
     if (!$user) {
-        throw new Exception('Invalid email or password');
+        http_response_code(401);
+        echo json_encode([
+            'success' => false,
+            'error' => 'No account found with this email address'
+        ]);
+        exit;
     }
     
     // Verify password
     if (!password_verify($password, $user['password'])) {
-        throw new Exception('Invalid email or password');
+        http_response_code(401);
+        echo json_encode([
+            'success' => false,
+            'error' => 'Incorrect password. Please try again.'
+        ]);
+        exit;
     }
     
     // Generate JWT token
@@ -88,13 +108,13 @@ try {
     http_response_code(500);
     echo json_encode([
         'success' => false,
-        'message' => 'Database error: ' . $e->getMessage()
+        'error' => 'Database error occurred. Please try again later.'
     ]);
     
 } catch (Exception $e) {
-    http_response_code(401);
+    http_response_code(400);
     echo json_encode([
         'success' => false,
-        'message' => $e->getMessage()
+        'error' => $e->getMessage()
     ]);
 }

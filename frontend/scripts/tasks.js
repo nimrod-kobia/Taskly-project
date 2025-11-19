@@ -1,5 +1,31 @@
 document.addEventListener('DOMContentLoaded', () => {
 
+  // === NOTIFICATION HELPER ===
+  const showNotification = (title, message, type = 'info') => {
+    const toastEl = document.getElementById('notificationToast');
+    const toastTitle = document.getElementById('toastTitle');
+    const toastBody = document.getElementById('toastBody');
+    const toastHeader = toastEl.querySelector('.toast-header');
+    
+    // Set colors based on type
+    toastHeader.className = 'toast-header';
+    if (type === 'success') {
+      toastHeader.classList.add('bg-success', 'text-white');
+    } else if (type === 'error') {
+      toastHeader.classList.add('bg-danger', 'text-white');
+    } else if (type === 'warning') {
+      toastHeader.classList.add('bg-warning');
+    } else {
+      toastHeader.classList.add('bg-primary', 'text-white');
+    }
+    
+    toastTitle.textContent = title;
+    toastBody.textContent = message;
+    
+    const toast = new bootstrap.Toast(toastEl, { delay: 3000 });
+    toast.show();
+  };
+
   // === AUTH HELPERS ===
   const getToken = () => localStorage.getItem('jwt') || sessionStorage.getItem('jwt');
 
@@ -52,9 +78,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // Get sort preference
     const sortSelect = document.getElementById('sortSelect');
     const sort = sortSelect ? sortSelect.value : 'score';
+    
+    // If 'past_tasks' is selected, we'll filter client-side for completed tasks
+    const isPastTasks = sort === 'past_tasks';
+    const actualSort = isPastTasks ? 'created_at' : sort;
 
     try {
-      const res = await fetch(`http://localhost:8000/tasks.php?user_id=${user.user_id}&sort=${sort}`, {
+      const res = await fetch(`http://localhost:8000/tasks.php?user_id=${user.user_id}&sort=${actualSort}`, {
         headers: { 'Authorization': `Bearer ${getToken()}` }
       });
 
@@ -64,18 +94,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (!res.ok) {
         console.error('Fetch tasks error:', data);
-        alert('Failed to load tasks: ' + (data.message || 'Unknown error'));
+        showNotification('Error', 'Failed to load tasks: ' + (data.message || 'Unknown error'), 'error');
         return;
       }
 
       tasks = Array.isArray(data.tasks) ? data.tasks : Object.values(data.tasks);
+      
+      // Filter for past tasks (completed only) if that view is selected
+      if (isPastTasks) {
+        tasks = tasks.filter(task => task.status === 'done');
+        console.log('Filtered to past tasks (completed):', tasks.length);
+      }
+      
       console.log('Tasks to render:', tasks.length);
       renderTasks(tasks);
       if (window.profileRefresh) window.profileRefresh();
 
     } catch (err) {
       console.error('Error fetching tasks:', err);
-      alert('Server error while loading tasks: ' + err.message);
+      showNotification('Error', 'Server error while loading tasks: ' + err.message, 'error');
     }
   };
 
@@ -85,13 +122,19 @@ document.addEventListener('DOMContentLoaded', () => {
     taskForm.addEventListener('submit', async e => {
       e.preventDefault();
 
+      const currentStatus = document.getElementById('status').value;
+      const reminderEnabled = document.getElementById('reminderEnabled').checked;
+      
       const taskData = {
         title: document.getElementById('title').value.trim(),
         description: document.getElementById('description').value.trim(),
         due_date: document.getElementById('deadline').value,
-        priority: document.getElementById('urgency').value,
+        priority: document.getElementById('priority').value,
+        urgency: parseInt(document.getElementById('urgency').value) || 5,
         effort: parseInt(document.getElementById('effort').value) || 1,
-        status: document.getElementById('status').value
+        status: currentStatus,
+        reminder_enabled: reminderEnabled,
+        reminder_time: reminderEnabled ? document.getElementById('reminderTime').value : null
       };
 
       const editId = taskForm.dataset.editId;
@@ -124,15 +167,39 @@ document.addEventListener('DOMContentLoaded', () => {
           delete taskForm.dataset.editId;
           fetchTasks();
         } else {
-          alert(data.message || data.error || 'Failed to save task.');
+          showNotification('Error', data.message || data.error || 'Failed to save task', 'error');
         }
 
       } catch (err) {
         console.error('Task save error:', err);
-        alert('Server error while saving task.');
+        showNotification('Error', 'Server error while saving task', 'error');
       }
     });
   }
+
+  // === MARK AS DONE ===
+  const markAsDone = async id => {
+    try {
+      const res = await fetch('http://localhost:8000/tasks.php', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${getToken()}`
+        },
+        body: JSON.stringify({ id: id, status: 'done' })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showNotification('Success', 'Task marked as done!', 'success');
+        fetchTasks();
+      } else {
+        showNotification('Error', data.error || 'Failed to update task', 'error');
+      }
+    } catch (err) {
+      console.error('Mark as done error:', err);
+      showNotification('Error', 'Server error while updating task', 'error');
+    }
+  };
 
   // === DELETE TASK ===
   const deleteTask = async id => {
@@ -144,11 +211,15 @@ document.addEventListener('DOMContentLoaded', () => {
         headers: { 'Authorization': `Bearer ${getToken()}` }
       });
       const data = await res.json();
-      if (res.ok && data.success) fetchTasks();
-      else alert(data.error || 'Failed to delete task.');
+      if (res.ok && data.success) {
+        showNotification('Success', 'Task deleted successfully', 'success');
+        fetchTasks();
+      } else {
+        showNotification('Error', data.error || 'Failed to delete task', 'error');
+      }
     } catch (err) {
       console.error('Delete task error:', err);
-      alert('Server error while deleting task.');
+      showNotification('Error', 'Server error while deleting task', 'error');
     }
   };
 
@@ -164,7 +235,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!tasks.length) {
       console.log('No tasks to display');
-      tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted">No tasks found</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted">No tasks found</td></tr>`;
       return;
     }
 
@@ -174,18 +245,22 @@ document.addEventListener('DOMContentLoaded', () => {
       const score = task.score || 0;
       const scoreColor = score >= 15 ? 'danger' : score >= 10 ? 'warning' : 'success';
       
+      const reminderIcon = task.reminder_enabled ? '<i class="bi bi-bell-fill text-warning" title="Reminder enabled"></i> ' : '';
+      
       tr.innerHTML = `
         <td><span class="badge bg-${scoreColor}">${score}</span></td>
-        <td>${task.title}</td>
+        <td>${reminderIcon}${task.title}</td>
         <td>${task.description || ''}</td>
         <td>${task.due_date || ''}</td>
-        <td><span class="badge bg-${task.priority === 'high' ? 'danger' : task.priority === 'medium' ? 'warning' : 'secondary'}">${task.priority || ''}</span></td>
         <td><span class="badge bg-${task.status === 'done' ? 'success' : task.status === 'inprogress' ? 'primary' : 'secondary'}">${task.status || ''}</span></td>
         <td>
           <button class="btn btn-sm btn-primary edit-btn" data-id="${task.id}">Edit</button>
           <button class="btn btn-sm btn-info share-btn" data-id="${task.id}">
             <i class="bi bi-share"></i> Share
           </button>
+          ${task.status !== 'done' ? `<button class="btn btn-sm btn-success done-btn" data-id="${task.id}" title="Mark as Done">
+            <i class="bi bi-check-circle"></i> Done
+          </button>` : ''}
           <button class="btn btn-sm btn-danger delete-btn" data-id="${task.id}">Delete</button>
         </td>
       `;
@@ -203,6 +278,10 @@ document.addEventListener('DOMContentLoaded', () => {
     tbody.querySelectorAll('.delete-btn').forEach(btn =>
       btn.addEventListener('click', () => deleteTask(btn.dataset.id))
     );
+
+    tbody.querySelectorAll('.done-btn').forEach(btn =>
+      btn.addEventListener('click', () => markAsDone(btn.dataset.id))
+    );
   };
 
   const openEditModal = taskId => {
@@ -212,9 +291,34 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('title').value = task.title;
     document.getElementById('description').value = task.description || '';
     document.getElementById('deadline').value = task.due_date || '';
-    document.getElementById('urgency').value = task.priority || '';
+    document.getElementById('priority').value = task.priority || 'medium';
+    document.getElementById('urgency').value = task.urgency || 5;
     document.getElementById('status').value = task.status || '';
     document.getElementById('effort').value = task.effort || 1;
+    
+    // Set reminder fields
+    const reminderEnabled = task.reminder_enabled || false;
+    document.getElementById('reminderEnabled').checked = reminderEnabled;
+    if (reminderEnabled && task.reminder_time) {
+      // Convert timestamp to datetime-local format
+      const reminderDate = new Date(task.reminder_time);
+      const formattedTime = reminderDate.toISOString().slice(0, 16);
+      document.getElementById('reminderTime').value = formattedTime;
+      document.getElementById('reminderTimeContainer').style.display = 'block';
+    } else {
+      document.getElementById('reminderTime').value = '';
+      document.getElementById('reminderTimeContainer').style.display = 'none';
+    }
+
+    // If status changes from 'todo' to anything else, auto-set to 'inprogress'
+    if (task.status === 'todo') {
+      document.getElementById('status').addEventListener('change', function handler(e) {
+        if (e.target.value !== 'todo' && e.target.value !== 'done') {
+          e.target.value = 'inprogress';
+        }
+        e.target.removeEventListener('change', handler);
+      });
+    }
 
     taskForm.dataset.editId = taskId;
     const modal = new bootstrap.Modal(document.getElementById('taskModal'));
@@ -233,9 +337,78 @@ document.addEventListener('DOMContentLoaded', () => {
   const logoutBtn = document.getElementById('logoutBtn');
   if (logoutBtn) logoutBtn.addEventListener('click', logout);
 
+  // === CHECK REMINDERS ===
+  const checkReminders = async () => {
+    const user = getCurrentUser();
+    if (!user) return;
+
+    try {
+      const res = await fetch(`http://localhost:8000/check_reminders.php?user_id=${user.user_id}`, {
+        headers: { 'Authorization': `Bearer ${getToken()}` }
+      });
+      const data = await res.json();
+      
+      if (res.ok && data.success && data.reminders.length > 0) {
+        data.reminders.forEach(task => {
+          showNotification(
+            '⏰ Task Reminder', 
+            `"${task.title}" is due ${task.due_date ? new Date(task.due_date).toLocaleDateString() : 'soon'}!\nClick to start working on it.`,
+            'warning'
+          );
+        });
+        
+        // Auto-transition reminded tasks to 'inprogress'
+        for (const task of data.reminders) {
+          await fetch('http://localhost:8000/tasks.php', {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${getToken()}`
+            },
+            body: JSON.stringify({ id: task.id, status: 'inprogress' })
+          });
+        }
+        
+        // Refresh tasks to show updated statuses
+        fetchTasks();
+      }
+    } catch (err) {
+      console.error('Error checking reminders:', err);
+    }
+  };
+
+  // === REMINDER CHECKBOX TOGGLE ===
+  const reminderCheckbox = document.getElementById('reminderEnabled');
+  const reminderTimeContainer = document.getElementById('reminderTimeContainer');
+  
+  if (reminderCheckbox) {
+    reminderCheckbox.addEventListener('change', (e) => {
+      reminderTimeContainer.style.display = e.target.checked ? 'block' : 'none';
+      if (!e.target.checked) {
+        document.getElementById('reminderTime').value = '';
+      }
+    });
+  }
+
+  // === MODAL RESET ===
+  const taskModal = document.getElementById('taskModal');
+  if (taskModal) {
+    taskModal.addEventListener('hidden.bs.modal', () => {
+      taskForm.reset();
+      delete taskForm.dataset.editId;
+      document.getElementById('reminderEnabled').checked = false;
+      document.getElementById('reminderTimeContainer').style.display = 'none';
+    });
+  }
+
   // === INITIAL LOAD ===
   // ✅ Only call fetchTasks if a token exists and is valid
-  if (getToken()) fetchTasks();
+  if (getToken()) {
+    fetchTasks();
+    // Check reminders every 2 minutes
+    checkReminders();
+    setInterval(checkReminders, 120000);
+  }
 
   // Render tasks in Kanban view
 const renderKanban = (tasks) => {
@@ -371,12 +544,12 @@ const filterTasks = () => {
       const email = document.getElementById('shareEmail').value.trim();
 
       if (!email) {
-        alert('Please enter an email address');
+        showNotification('Warning', 'Please enter an email address', 'warning');
         return;
       }
 
       if (!email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
-        alert('Please enter a valid email address');
+        showNotification('Warning', 'Please enter a valid email address', 'warning');
         return;
       }
 
@@ -396,15 +569,15 @@ const filterTasks = () => {
         const data = await res.json();
 
         if (res.ok && data.success) {
-          alert('Task shared successfully!');
+          showNotification('Success', 'Task shared successfully!', 'success');
           const modal = bootstrap.Modal.getInstance(document.getElementById('shareModal'));
           if (modal) modal.hide();
         } else {
-          alert(data.message || 'Failed to share task');
+          showNotification('Error', data.message || 'Failed to share task', 'error');
         }
       } catch (err) {
         console.error('Share task error:', err);
-        alert('Server error while sharing task');
+        showNotification('Error', 'Server error while sharing task', 'error');
       }
     });
   }

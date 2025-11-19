@@ -31,8 +31,13 @@
             <input type="checkbox" class="form-check-input" id="rememberMe">
             <label class="form-check-label" for="rememberMe">Remember me</label>
           </div>
-          <button type="submit" class="btn btn-primary w-100">Log In</button>
+          <button type="submit" class="btn btn-primary w-100" id="loginBtn">Log In</button>
           <div id="errorMsg" class="mt-2"></div>
+          <!-- Error Alert -->
+          <div id="loginError" class="alert alert-danger mt-3" style="display:none;" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+            <span id="loginErrorMsg"></span>
+          </div>
         </form>
         <p class="mt-3 text-center">Don't have an account? <a href="register.html">Sign Up</a></p>
         <p class="text-center"><a href="forgot-password.html">Forgot Password?</a></p>
@@ -44,6 +49,9 @@
   <footer class="bg-dark text-light text-center py-3 mt-auto">
     <p>&copy; 2025 Taskly. All rights reserved.</p>
   </footer>
+
+  <!-- Toast Notification Container -->
+  <div class="toast-container position-fixed bottom-0 end-0 p-3" id="toastContainer"></div>
 
   <script>
   // Safety reset: if you landed on login.html via logout or manually
