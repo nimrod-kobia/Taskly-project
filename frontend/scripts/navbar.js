@@ -22,7 +22,7 @@ async function loadNotifications() {
     if (!token) return;
 
     // Get unread count
-    const countResponse = await fetch('http://localhost:8000/tasks/notifications.php?count=true', {
+    const countResponse = await fetch('http://localhost:8000/reminder.php?count=true', {
       headers: {
         'Authorization': `Bearer ${token}`
       }
@@ -42,8 +42,8 @@ async function loadNotifications() {
       }
     }
 
-    // Get recent notifications
-    const response = await fetch('http://localhost:8000/tasks/notifications.php?limit=10', {
+    // Get recent notifications - REMOVE ?count=true to get full list
+    const response = await fetch('http://localhost:8000/reminder.php', {
       headers: {
         'Authorization': `Bearer ${token}`
       }
@@ -68,38 +68,52 @@ function renderNotifications(notifications) {
   
   if (!notifications || notifications.length === 0) {
     notificationList.innerHTML = `
-      <div class="text-center py-5 text-muted">
-        <i class="bi bi-bell-slash fs-1"></i>
-        <p class="mt-2">No notifications</p>
-      </div>
+      <li class="dropdown-item text-center py-4">
+        <i class="bi bi-bell-slash fs-1 text-muted d-block mb-2"></i>
+        <p class="text-muted mb-0">No notifications</p>
+      </li>
     `;
     return;
   }
 
   notificationList.innerHTML = notifications.map(notification => {
-    const isUnread = !notification.is_read;
-    const timeAgo = getTimeAgo(notification.created_at);
-    const typeIcon = notification.type === 'due_soon' ? 'clock' : 
-                    notification.type === 'overdue' ? 'exclamation-triangle' : 
-                    'check-circle';
-    const typeColor = notification.type === 'overdue' ? 'text-danger' : 
-                     notification.type === 'due_soon' ? 'text-warning' : 
-                     'text-success';
+    const typeClass = notification.notification_type === 'overdue' ? 'danger' : 
+                      notification.notification_type === 'due_today' ? 'warning' : 
+                      'primary';
+    const icon = notification.notification_type === 'overdue' ? 'bi-exclamation-triangle-fill' : 
+                 notification.notification_type === 'due_today' ? 'bi-clock-fill' : 
+                 'bi-calendar-check';
+    const bgClass = notification.notification_type === 'overdue' ? 'bg-danger-subtle' : 
+                    notification.notification_type === 'due_today' ? 'bg-warning-subtle' : 
+                    'bg-primary-subtle';
     
     return `
-      <div class="notification-item p-3 border-bottom ${isUnread ? 'bg-light' : ''}" 
-           onclick="window.markNotificationRead(${notification.id})" 
-           style="cursor: pointer;">
-        <div class="d-flex">
-          <i class="bi bi-${typeIcon} ${typeColor} fs-5 me-3"></i>
-          <div class="flex-grow-1">
-            <h6 class="mb-1 ${isUnread ? 'fw-bold' : ''}">${notification.title}</h6>
-            <p class="mb-1 text-muted small">${notification.message}</p>
-            <small class="text-muted">${timeAgo}</small>
+      <li>
+        <a class="dropdown-item notification-item p-3 ${notification.is_read ? 'read' : 'unread'}" 
+           href="#" 
+           onclick="markNotificationRead(${notification.id}); return false;">
+          <div class="d-flex align-items-start gap-3">
+            <div class="notification-icon ${bgClass} text-${typeClass} rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" 
+                 style="width: 40px; height: 40px;">
+              <i class="bi ${icon}"></i>
+            </div>
+            <div class="flex-grow-1 overflow-hidden">
+              <div class="fw-semibold text-dark mb-1">${notification.title}</div>
+              <div class="small text-muted mb-1">
+                <i class="bi bi-calendar3 me-1"></i>${new Date(notification.due_date).toLocaleDateString()}
+                ${notification.priority ? `<span class="badge bg-${notification.priority === 'high' ? 'danger' : notification.priority === 'medium' ? 'warning text-dark' : 'success'} ms-2 px-2 py-1">${notification.priority}</span>` : ''}
+              </div>
+              <div class="notification-type-badge">
+                <span class="badge bg-${typeClass} bg-opacity-10 text-${typeClass} fw-normal">
+                  ${notification.notification_type === 'overdue' ? '⚠️ Overdue' : 
+                    notification.notification_type === 'due_today' ? '📅 Due Today' : 
+                    `📌 ${notification.days_until_due} day(s) left`}
+                </span>
+              </div>
+            </div>
           </div>
-          ${isUnread ? '<span class="badge bg-primary">New</span>' : ''}
-        </div>
-      </div>
+        </a>
+      </li>
     `;
   }).join('');
 }
