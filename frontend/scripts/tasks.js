@@ -48,9 +48,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     console.log('Fetching tasks for user:', user.user_id);
+    
+    // Get sort preference
+    const sortSelect = document.getElementById('sortSelect');
+    const sort = sortSelect ? sortSelect.value : 'score';
 
     try {
-      const res = await fetch(`http://localhost:8000/tasks.php?user_id=${user.user_id}`, {
+      const res = await fetch(`http://localhost:8000/tasks.php?user_id=${user.user_id}&sort=${sort}`, {
         headers: { 'Authorization': `Bearer ${getToken()}` }
       });
 
@@ -160,19 +164,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!tasks.length) {
       console.log('No tasks to display');
-      tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted">No tasks found</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted">No tasks found</td></tr>`;
       return;
     }
 
     console.log('Rendering', tasks.length, 'tasks');
     tasks.forEach(task => {
       const tr = document.createElement('tr');
+      const score = task.score || 0;
+      const scoreColor = score >= 15 ? 'danger' : score >= 10 ? 'warning' : 'success';
+      
       tr.innerHTML = `
+        <td><span class="badge bg-${scoreColor}">${score}</span></td>
         <td>${task.title}</td>
         <td>${task.description || ''}</td>
         <td>${task.due_date || ''}</td>
-        <td>${task.priority || ''}</td>
-        <td>${task.status || ''}</td>
+        <td><span class="badge bg-${task.priority === 'high' ? 'danger' : task.priority === 'medium' ? 'warning' : 'secondary'}">${task.priority || ''}</span></td>
+        <td><span class="badge bg-${task.status === 'done' ? 'success' : task.status === 'inprogress' ? 'primary' : 'secondary'}">${task.status || ''}</span></td>
         <td>
           <button class="btn btn-sm btn-primary edit-btn" data-id="${task.id}">Edit</button>
           <button class="btn btn-sm btn-info share-btn" data-id="${task.id}">
@@ -212,6 +220,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const modal = new bootstrap.Modal(document.getElementById('taskModal'));
     modal.show();
   };
+
+  // === SORT SELECT ===
+  const sortSelect = document.getElementById('sortSelect');
+  if (sortSelect) {
+    sortSelect.addEventListener('change', () => {
+      fetchTasks();
+    });
+  }
 
   // === LOGOUT ===
   const logoutBtn = document.getElementById('logoutBtn');
