@@ -110,12 +110,13 @@ try {
         }
         
         // Update password if provided
-        if (isset($data['password']) && !empty($data['password'])) {
-            if (strlen($data['password']) < 6) {
+        if (isset($data['password']) && !empty(trim($data['password']))) {
+            $password = trim($data['password']);
+            if (strlen($password) < 6) {
                 throw new Exception('Password must be at least 6 characters long');
             }
             $updates[] = "password = ?";
-            $params[] = password_hash($data['password'], PASSWORD_BCRYPT);
+            $params[] = password_hash($password, PASSWORD_BCRYPT);
         }
         
         if (empty($updates)) {

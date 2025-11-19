@@ -38,7 +38,12 @@ try {
     
     // Validate input - full_name is optional
     if (empty($data['email']) || empty($data['password'])) {
-        throw new Exception('Email and password are required');
+        http_response_code(400);
+        echo json_encode([
+            'success' => false,
+            'error' => 'Email and password are required'
+        ]);
+        exit;
     }
     
     $fullName = isset($data['full_name']) ? trim($data['full_name']) : null;
@@ -47,17 +52,32 @@ try {
     
     // Validate email
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        throw new Exception('Invalid email format');
+        http_response_code(400);
+        echo json_encode([
+            'success' => false,
+            'error' => 'Please enter a valid email address'
+        ]);
+        exit;
     }
     
     // Validate password length
     if (strlen($password) < 6) {
-        throw new Exception('Password must be at least 6 characters');
+        http_response_code(400);
+        echo json_encode([
+            'success' => false,
+            'error' => 'Password must be at least 6 characters long'
+        ]);
+        exit;
     }
     
     // Validate full_name if provided
     if ($fullName && strlen($fullName) < 2) {
-        throw new Exception('Full name must be at least 2 characters');
+        http_response_code(400);
+        echo json_encode([
+            'success' => false,
+            'error' => 'Full name must be at least 2 characters long'
+        ]);
+        exit;
     }
     
     // Load database connection and config
@@ -69,7 +89,12 @@ try {
     $stmt->execute([$email]);
     
     if ($stmt->fetch()) {
-        throw new Exception('Email already registered');
+        http_response_code(409);
+        echo json_encode([
+            'success' => false,
+            'error' => 'This email is already registered. Please login instead.'
+        ]);
+        exit;
     }
     
     // Hash password

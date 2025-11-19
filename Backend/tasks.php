@@ -145,6 +145,8 @@ try {
             $status = isset($data['status']) ? strtolower($data['status']) : 'todo';
             $effort = isset($data['effort']) ? intval($data['effort']) : 1;
             $urgency = isset($data['urgency']) ? intval($data['urgency']) : 1;
+            $reminderEnabled = isset($data['reminder_enabled']) ? (bool)$data['reminder_enabled'] : false;
+            $reminderTime = (isset($data['reminder_time']) && !empty($data['reminder_time'])) ? $data['reminder_time'] : null;
             
             // Validate priority
             $validPriorities = ['low', 'medium', 'high'];
@@ -159,11 +161,11 @@ try {
             }
             
             $stmt = $pdo->prepare("
-                INSERT INTO tasks (user_id, title, description, due_date, priority, status, effort, urgency, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
-                RETURNING id, user_id, title, description, due_date, priority, status, effort, urgency, created_at
+                INSERT INTO tasks (user_id, title, description, due_date, priority, status, effort, urgency, reminder_enabled, reminder_time, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+                RETURNING id, user_id, title, description, due_date, priority, status, effort, urgency, reminder_enabled, reminder_time, created_at
             ");
-            $stmt->execute([$userId, $title, $description, $dueDate, $priority, $status, $effort, $urgency]);
+            $stmt->execute([$userId, $title, $description, $dueDate, $priority, $status, $effort, $urgency, $reminderEnabled, $reminderTime]);
             $task = $stmt->fetch(PDO::FETCH_ASSOC);
             
             http_response_code(201);
@@ -189,7 +191,7 @@ try {
             $updates = [];
             $params = [];
             
-            if (isset($data['title'])) {
+            if (isset($data['title']) && $data['title'] !== '') {
                 $updates[] = "title = ?";
                 $params[] = trim($data['title']);
             }
@@ -201,17 +203,42 @@ try {
                 $updates[] = "due_date = ?";
                 $params[] = !empty($data['due_date']) ? $data['due_date'] : null;
             }
-            if (isset($data['priority'])) {
+            if (isset($data['priority']) && $data['priority'] !== '') {
                 $updates[] = "priority = ?";
                 $params[] = $data['priority'];
             }
-            if (isset($data['status'])) {
+            if (isset($data['status']) && $data['status'] !== '') {
                 $updates[] = "status = ?";
                 $params[] = strtolower($data['status']);
+                
+                // When status changes to 'inprogress', reset last_notification_sent
+                if (strtolower($data['status']) === 'inprogress') {
+                    $updates[] = "last_notification_sent = NULL";
+                }
             }
-            if (isset($data['effort'])) {
+            if (isset($data['effort']) && $data['effort'] !== '') {
                 $updates[] = "effort = ?";
                 $params[] = intval($data['effort']);
+            }
+            if (isset($data['urgency']) && $data['urgency'] !== '') {
+                $updates[] = "urgency = ?";
+                $params[] = intval($data['urgency']);
+            }
+            if (isset($data['reminder_enabled']) && $data['reminder_enabled'] !== '') {
+                $updates[] = "reminder_enabled = ?";
+                // Properly convert to boolean - PostgreSQL requires true boolean type
+                $reminderValue = $data['reminder_enabled'];
+                if (is_bool($reminderValue)) {
+                    $params[] = $reminderValue;
+                } else if ($reminderValue === 'true' || $reminderValue === '1' || $reminderValue === 1) {
+                    $params[] = true;
+                } else {
+                    $params[] = false;
+                }
+            }
+            if (isset($data['reminder_time'])) {
+                $updates[] = "reminder_time = ?";
+                $params[] = !empty($data['reminder_time']) ? $data['reminder_time'] : null;
             }
             
             if (empty($updates)) {
@@ -226,7 +253,7 @@ try {
             
             // Fetch only necessary fields
             $stmt = $pdo->prepare("
-                SELECT id, user_id, title, description, due_date, priority, status, effort, urgency, created_at 
+                SELECT id, user_id, title, description, due_date, priority, status, effort, urgency, reminder_enabled, reminder_time, last_notification_sent, created_at 
                 FROM tasks WHERE id = ?
             ");
             $stmt->execute([$taskId]);
