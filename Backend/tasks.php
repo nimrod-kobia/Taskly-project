@@ -37,9 +37,15 @@ try {
             $sort = isset($_GET['sort']) ? $_GET['sort'] : 'score';
             
             $stmt = $pdo->prepare("
-                SELECT id, user_id, title, description, due_date, 
-                       priority, status, effort, urgency, created_at,
-                       reminder_enabled, reminder_time,
+                SELECT t.id, t.user_id, t.title, t.description, t.due_date, 
+                       t.priority, t.status, t.effort, t.urgency, t.created_at,
+                       t.reminder_enabled, t.reminder_time,
+                       -- Check if task has been shared
+                       CASE WHEN EXISTS(
+                           SELECT 1 FROM shared_tasks st WHERE st.task_id = t.id
+                       ) THEN true ELSE false END as has_been_shared,
+                       -- Get count of how many people it's shared with
+                       (SELECT COUNT(*) FROM shared_tasks st WHERE st.task_id = t.id) as shared_count,
                        -- Calculate priority score (1-3)
                        CASE 
                            WHEN LOWER(priority) = 'high' THEN 3
@@ -73,8 +79,8 @@ try {
                            WHEN LOWER(priority) = 'medium' THEN 2
                            ELSE 1
                        END as score
-                FROM tasks 
-                WHERE user_id = ? 
+                FROM tasks t
+                WHERE t.user_id = ? 
                 ORDER BY 
                     CASE WHEN ? = 'score' THEN (
                         COALESCE(CAST(urgency AS INTEGER), 1) + 

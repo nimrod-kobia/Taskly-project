@@ -42,17 +42,19 @@ try {
 // === Get Notifications ===
 try {
     if (isset($_GET['count']) && $_GET['count'] === 'true') {
-        // Count tasks due this week (PostgreSQL syntax)
+        // Count both owned tasks and shared tasks due this week (PostgreSQL syntax)
         $stmt = $pdo->prepare("
-            SELECT COUNT(*) as count 
-            FROM tasks 
-            WHERE user_id = ? 
-            AND (status IS NULL OR status != 'completed')
-            AND due_date IS NOT NULL 
-            AND due_date >= CURRENT_DATE 
-            AND due_date <= CURRENT_DATE + INTERVAL '7 days'
+            SELECT COUNT(DISTINCT t.id) as count 
+            FROM tasks t
+            LEFT JOIN shared_tasks st ON t.id = st.task_id
+            LEFT JOIN users u ON t.user_id = u.id
+            WHERE (t.user_id = ? OR st.shared_with_email = (SELECT email FROM users WHERE id = ?))
+            AND (t.status IS NULL OR t.status != 'completed' AND t.status != 'done')
+            AND t.due_date IS NOT NULL 
+            AND t.due_date >= CURRENT_DATE 
+            AND t.due_date <= CURRENT_DATE + INTERVAL '7 days'
         ");
-        $stmt->execute([$userId]);
+        $stmt->execute([$userId, $userId]);
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
         
         echo json_encode([
@@ -60,31 +62,36 @@ try {
             'count' => (int)($result['count'] ?? 0)
         ]);
     } else {
-        // Get tasks due this week (PostgreSQL syntax)
+        // Get both owned tasks and shared tasks due this week (PostgreSQL syntax)
         $stmt = $pdo->prepare("
-            SELECT 
-                id,
-                title,
-                description,
-                due_date,
-                priority,
-                status,
+            SELECT DISTINCT
+                t.id,
+                t.title,
+                t.description,
+                t.due_date,
+                t.priority,
+                t.status,
                 CASE 
-                    WHEN DATE(due_date) = CURRENT_DATE THEN 'due_today'
-                    WHEN due_date < CURRENT_DATE THEN 'overdue'
+                    WHEN DATE(t.due_date) = CURRENT_DATE THEN 'due_today'
+                    WHEN t.due_date < CURRENT_DATE THEN 'overdue'
                     ELSE 'upcoming'
                 END as notification_type,
-                DATE_PART('day', due_date::timestamp - CURRENT_DATE::timestamp) as days_until_due
-            FROM tasks 
-            WHERE user_id = ? 
-            AND (status IS NULL OR status != 'completed')
-            AND due_date IS NOT NULL 
-            AND due_date >= CURRENT_DATE 
-            AND due_date <= CURRENT_DATE + INTERVAL '7 days'
-            ORDER BY due_date ASC
+                DATE_PART('day', t.due_date::timestamp - CURRENT_DATE::timestamp) as days_until_due,
+                CASE WHEN t.user_id = ? THEN false ELSE true END as is_shared,
+                u.full_name as shared_by,
+                (SELECT COUNT(*) FROM shared_tasks WHERE task_id = t.id) as shared_count
+            FROM tasks t
+            LEFT JOIN shared_tasks st ON t.id = st.task_id
+            LEFT JOIN users u ON t.user_id = u.id
+            WHERE (t.user_id = ? OR st.shared_with_email = (SELECT email FROM users WHERE id = ?))
+            AND (t.status IS NULL OR t.status != 'completed' AND t.status != 'done')
+            AND t.due_date IS NOT NULL 
+            AND t.due_date >= CURRENT_DATE 
+            AND t.due_date <= CURRENT_DATE + INTERVAL '7 days'
+            ORDER BY t.due_date ASC
             LIMIT 20
         ");
-        $stmt->execute([$userId]);
+        $stmt->execute([$userId, $userId, $userId]);
         $notifications = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
         // Format messages

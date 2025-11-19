@@ -87,6 +87,15 @@ function renderNotifications(notifications) {
                     notification.notification_type === 'due_today' ? 'bg-warning-subtle' : 
                     'bg-primary-subtle';
     
+    // Determine sharing status
+    const isShared = notification.is_shared === true || notification.is_shared === 1;
+    const isOutgoingShare = !isShared && notification.shared_count > 0;
+    const sharingBadge = isShared 
+      ? `<span class="badge bg-info ms-1" title="Shared by ${notification.shared_by}">👥 Shared by ${notification.shared_by}</span>`
+      : (isOutgoingShare 
+        ? `<span class="badge bg-success ms-1" title="Shared with ${notification.shared_count} person(s)">📤 Shared with ${notification.shared_count}</span>`
+        : '');
+    
     return `
       <li>
         <a class="dropdown-item notification-item p-3 ${notification.is_read ? 'read' : 'unread'}" 
@@ -98,7 +107,7 @@ function renderNotifications(notifications) {
               <i class="bi ${icon}"></i>
             </div>
             <div class="flex-grow-1 overflow-hidden">
-              <div class="fw-semibold text-dark mb-1">${notification.title}</div>
+              <div class="fw-semibold text-dark mb-1">${notification.title} ${sharingBadge}</div>
               <div class="small text-muted mb-1">
                 <i class="bi bi-calendar3 me-1"></i>${new Date(notification.due_date).toLocaleDateString()}
                 ${notification.priority ? `<span class="badge bg-${notification.priority === 'high' ? 'danger' : notification.priority === 'medium' ? 'warning text-dark' : 'success'} ms-2 px-2 py-1">${notification.priority}</span>` : ''}
