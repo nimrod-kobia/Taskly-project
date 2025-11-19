@@ -33,15 +33,80 @@ try {
             $limit = isset($_GET['limit']) ? intval($_GET['limit']) : 100;
             $offset = isset($_GET['offset']) ? intval($_GET['offset']) : 0;
             
+            // Get sort parameter (default: score)
+            $sort = isset($_GET['sort']) ? $_GET['sort'] : 'score';
+            
             $stmt = $pdo->prepare("
                 SELECT id, user_id, title, description, due_date, 
-                       priority, completed, created_at
+                       priority, status, effort, urgency, created_at,
+                       reminder_enabled, reminder_time,
+                       -- Calculate priority score (1-3)
+                       CASE 
+                           WHEN LOWER(priority) = 'high' THEN 3
+                           WHEN LOWER(priority) = 'medium' THEN 2
+                           ELSE 1
+                       END as priority_score,
+                       -- Calculate deadline urgency (0-5): closer = higher score
+                       CASE 
+                           WHEN due_date IS NULL THEN 0
+                           WHEN due_date < CURRENT_DATE THEN 5
+                           WHEN due_date = CURRENT_DATE THEN 4
+                           WHEN due_date <= CURRENT_DATE + INTERVAL '1 day' THEN 3
+                           WHEN due_date <= CURRENT_DATE + INTERVAL '3 days' THEN 2
+                           WHEN due_date <= CURRENT_DATE + INTERVAL '7 days' THEN 1
+                           ELSE 0
+                       END as deadline_urgency,
+                       -- Total score: urgency (1-10) + deadline_urgency (0-5) + effort (1-10) + priority_score (1-3)
+                       COALESCE(urgency, 1) + 
+                       CASE 
+                           WHEN due_date IS NULL THEN 0
+                           WHEN due_date < CURRENT_DATE THEN 5
+                           WHEN due_date = CURRENT_DATE THEN 4
+                           WHEN due_date <= CURRENT_DATE + INTERVAL '1 day' THEN 3
+                           WHEN due_date <= CURRENT_DATE + INTERVAL '3 days' THEN 2
+                           WHEN due_date <= CURRENT_DATE + INTERVAL '7 days' THEN 1
+                           ELSE 0
+                       END + 
+                       COALESCE(effort, 1) + 
+                       CASE 
+                           WHEN LOWER(priority) = 'high' THEN 3
+                           WHEN LOWER(priority) = 'medium' THEN 2
+                           ELSE 1
+                       END as score
                 FROM tasks 
                 WHERE user_id = ? 
-                ORDER BY created_at DESC
+                ORDER BY 
+                    CASE WHEN ? = 'score' THEN (
+                        COALESCE(urgency, 1) + 
+                        CASE 
+                            WHEN due_date IS NULL THEN 0
+                            WHEN due_date < CURRENT_DATE THEN 5
+                            WHEN due_date = CURRENT_DATE THEN 4
+                            WHEN due_date <= CURRENT_DATE + INTERVAL '1 day' THEN 3
+                            WHEN due_date <= CURRENT_DATE + INTERVAL '3 days' THEN 2
+                            WHEN due_date <= CURRENT_DATE + INTERVAL '7 days' THEN 1
+                            ELSE 0
+                        END + 
+                        COALESCE(effort, 1) + 
+                        CASE 
+                            WHEN LOWER(priority) = 'high' THEN 3
+                            WHEN LOWER(priority) = 'medium' THEN 2
+                            ELSE 1
+                        END
+                    ) END DESC,
+                    CASE WHEN ? = 'due_date' THEN due_date END ASC,
+                    CASE WHEN ? = 'priority' THEN 
+                        CASE 
+                            WHEN LOWER(priority) = 'high' THEN 1
+                            WHEN LOWER(priority) = 'medium' THEN 2
+                            ELSE 3
+                        END 
+                    END ASC,
+                    CASE WHEN ? = 'created_at' THEN created_at END DESC,
+                    created_at DESC
                 LIMIT ? OFFSET ?
             ");
-            $stmt->execute([$userId, $limit, $offset]);
+            $stmt->execute([$userId, $sort, $sort, $sort, $sort, $limit, $offset]);
             $tasks = $stmt->fetchAll(PDO::FETCH_ASSOC);
             
             // Get total count for pagination
@@ -75,22 +140,30 @@ try {
             $userId = intval($data['user_id']);
             $title = trim($data['title']);
             $description = isset($data['description']) ? trim($data['description']) : null;
-            $dueDate = isset($data['due_date']) ? $data['due_date'] : null;
-            $priority = isset($data['priority']) ? $data['priority'] : 'Medium';
-            $completed = isset($data['completed']) ? (bool)$data['completed'] : false;
+            $dueDate = (isset($data['due_date']) && !empty($data['due_date'])) ? $data['due_date'] : null;
+            $priority = isset($data['priority']) ? strtolower($data['priority']) : 'medium';
+            $status = isset($data['status']) ? strtolower($data['status']) : 'todo';
+            $effort = isset($data['effort']) ? intval($data['effort']) : 1;
+            $urgency = isset($data['urgency']) ? intval($data['urgency']) : 1;
             
             // Validate priority
-            $validPriorities = ['Low', 'Medium', 'High'];
+            $validPriorities = ['low', 'medium', 'high'];
             if (!in_array($priority, $validPriorities)) {
-                $priority = 'Medium';
+                $priority = 'medium';
+            }
+            
+            // Validate status
+            $validStatuses = ['todo', 'inprogress', 'done'];
+            if (!in_array($status, $validStatuses)) {
+                $status = 'todo';
             }
             
             $stmt = $pdo->prepare("
-                INSERT INTO tasks (user_id, title, description, due_date, priority, completed, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, NOW())
-                RETURNING id, user_id, title, description, due_date, priority, completed, created_at
+                INSERT INTO tasks (user_id, title, description, due_date, priority, status, effort, urgency, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
+                RETURNING id, user_id, title, description, due_date, priority, status, effort, urgency, created_at
             ");
-            $stmt->execute([$userId, $title, $description, $dueDate, $priority, $completed]);
+            $stmt->execute([$userId, $title, $description, $dueDate, $priority, $status, $effort, $urgency]);
             $task = $stmt->fetch(PDO::FETCH_ASSOC);
             
             http_response_code(201);
@@ -126,15 +199,19 @@ try {
             }
             if (isset($data['due_date'])) {
                 $updates[] = "due_date = ?";
-                $params[] = $data['due_date'];
+                $params[] = !empty($data['due_date']) ? $data['due_date'] : null;
             }
             if (isset($data['priority'])) {
                 $updates[] = "priority = ?";
                 $params[] = $data['priority'];
             }
-            if (isset($data['completed'])) {
-                $updates[] = "completed = ?";
-                $params[] = (bool)$data['completed'];
+            if (isset($data['status'])) {
+                $updates[] = "status = ?";
+                $params[] = strtolower($data['status']);
+            }
+            if (isset($data['effort'])) {
+                $updates[] = "effort = ?";
+                $params[] = intval($data['effort']);
             }
             
             if (empty($updates)) {
@@ -149,7 +226,7 @@ try {
             
             // Fetch only necessary fields
             $stmt = $pdo->prepare("
-                SELECT id, user_id, title, description, due_date, priority, completed, created_at 
+                SELECT id, user_id, title, description, due_date, priority, status, effort, urgency, created_at 
                 FROM tasks WHERE id = ?
             ");
             $stmt->execute([$taskId]);

@@ -7,6 +7,7 @@ Group project for our Software engineering class.
 -Alex Muriithi 177298
 -Brian Kipngeno 168049
 -Brian Kipkoech 172431
+-Ryan Ngugi 192561
 You have to run the frontend and backend separately
 Backend:
 cd backend
