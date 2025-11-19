@@ -28,7 +28,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const userId = payload.user_id;
       
       // Fetch owned tasks
-      const ownedRes = await fetch(`http://localhost:8000/tasks.php?user_id=${userId}`, {
+      const ownedRes = await fetch(`http://localhost:8000/tasks/get_tasks.php`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const ownedData = await ownedRes.json();
@@ -38,7 +38,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       const ownedTasks = (ownedData.tasks || []).map(t => ({
         ...t,
         isOutgoingShare: t.has_been_shared && t.shared_count > 0,
-        sharedCount: t.shared_count || 0
+        sharedCount: t.shared_count || 0,
+        sharedWith: t.shared_with || []
       }));
       
       // Fetch shared tasks (incoming)
@@ -87,7 +88,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             sharedBy: t.sharedBy,
             sharedByEmail: t.sharedByEmail,
             isOutgoingShare: t.isOutgoingShare || false,
-            sharedCount: t.sharedCount || 0
+            sharedCount: t.sharedCount || 0,
+            sharedWith: t.sharedWith || []
           }
         };
       });
@@ -400,7 +402,12 @@ function showTaskDetailsModal(event) {
           ${props.isOutgoingShare ? `
             <div class="alert alert-success">
               <i class="bi bi-send-fill"></i> <strong>Shared with Others</strong>
-              <br><small>Shared with ${props.sharedCount} person(s)</small>
+              <br><small>Shared with ${props.sharedCount} person(s):</small>
+              ${props.sharedWith && props.sharedWith.length > 0 ? `
+                <ul class="mb-0 mt-1">
+                  ${props.sharedWith.map(r => `<li>${r.shared_with_email}</li>`).join('')}
+                </ul>
+              ` : ''}
             </div>
           ` : ''}
           <p><strong>Due Date:</strong> ${event.start.toLocaleDateString()}</p>

@@ -106,6 +106,22 @@ body {
   color: white;
 }
 
+/* Email chips container for share modal */
+.email-chips-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Share results hidden initially */
+.share-results-hidden {
+  display: none;
+}
+
+.share-results-visible {
+  display: block;
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .kanban-col { min-height: 300px; margin-bottom: 15px; }

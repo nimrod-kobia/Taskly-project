@@ -3,6 +3,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+const path = require('path');
 const { createClient } = require('@supabase/supabase-js');
 
 const app = express();
@@ -410,6 +411,11 @@ app.get('/getReminders', authenticateUser, async (req, res) => {
 // Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', message: 'Taskly API is running' });
+});
+
+// Catch-all handler: send back index.html for any non-API routes
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../frontend/index.html'));
 });
 
 // Start server
