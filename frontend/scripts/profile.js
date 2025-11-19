@@ -38,18 +38,33 @@ document.addEventListener('DOMContentLoaded', async () => {
       const res = await fetch('http://localhost:8000/tasks/get_tasks.php', {
         headers: { 'Authorization': `Bearer ${getToken()}` }
       });
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error('Server error response:', errorText);
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      
       const data = await res.json();
-      const tasks = Array.isArray(data.tasks) ? data.tasks : Object.values(data.tasks);
+      console.log('Tasks response:', data);
+      
+      // Handle null, undefined, or missing tasks
+      if (!data.success || !data.tasks) {
+        console.warn('No tasks data received');
+        return;
+      }
+      
+      const tasks = Array.isArray(data.tasks) ? data.tasks : [];
 
       // Calculate statistics
-      const completed = tasks.filter(t => t.status?.toLowerCase() === 'done').length;
-      const inProgress = tasks.filter(t => t.status?.toLowerCase() === 'in progress').length;
+      const completed = tasks.filter(t => t.status?.toLowerCase() === 'completed' || t.status?.toLowerCase() === 'done').length;
+      const inProgress = tasks.filter(t => t.status?.toLowerCase() === 'in_progress' || t.status?.toLowerCase() === 'in progress').length;
       const pending = tasks.filter(t => !t.status || t.status?.toLowerCase() === 'pending' || t.status?.toLowerCase() === 'to do').length;
       const highPriority = tasks.filter(t => t.priority?.toLowerCase() === 'high').length;
 
       // Update existing stats
-      tasksCompletedEl.textContent = completed;
-      tasksPendingEl.textContent = pending;
+      if (tasksCompletedEl) tasksCompletedEl.textContent = completed;
+      if (tasksPendingEl) tasksPendingEl.textContent = pending;
 
       // Update new stat cards
       const statsCompleted = document.getElementById('statsCompleted');
@@ -64,6 +79,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     } catch (err) {
       console.error('Error fetching tasks for profile:', err);
+      // Set default values on error
+      if (tasksCompletedEl) tasksCompletedEl.textContent = '0';
+      if (tasksPendingEl) tasksPendingEl.textContent = '0';
     }
   };
 

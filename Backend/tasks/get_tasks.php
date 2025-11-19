@@ -6,7 +6,6 @@ require __DIR__ . '/../cors.php';
 
 // === STEP 2: Include dependencies ===
 require __DIR__ . '/../db.php';
-require __DIR__ . '/../Controllers/TaskController.php'; // Note the capital "C"
 require __DIR__ . '/../config.php';
 require __DIR__ . '/../vendor/autoload.php';
 
@@ -26,26 +25,70 @@ if (!$authHeader && function_exists('apache_request_headers')) {
 }
 
 $token = str_replace('Bearer ', '', $authHeader);
+
+if (!$token) {
+    http_response_code(401);
+    echo json_encode(['success' => false, 'error' => 'No token provided']);
+    exit;
+}
+
 $secretKey = $config['jwt']['secret'] ?? 'taskly_secret_2025';
 
 try {
     $payload = \Firebase\JWT\JWT::decode($token, new \Firebase\JWT\Key($secretKey, 'HS256'));
     $userId = $payload->user_id ?? null;
-    if (!$userId) throw new Exception('Missing user ID in token');
+    
+    if (!$userId) {
+        throw new Exception('Invalid token payload');
+    }
 } catch (Exception $e) {
     http_response_code(401);
-    echo json_encode(['error' => 'Invalid token', 'details' => $e->getMessage()]);
+    echo json_encode(['success' => false, 'error' => 'Invalid token: ' . $e->getMessage()]);
     exit;
 }
 
 // === STEP 5: Fetch tasks ===
 try {
-    $controller = new TaskController($pdo, $config['jwt'] ?? [], $config['smtp'] ?? []);
-    $controller->getTasks($userId);
+    // Check if database connection exists
+    if (!isset($pdo)) {
+        throw new Exception('Database connection not available');
+    }
+    
+    $stmt = $pdo->prepare("
+        SELECT 
+            id,
+            title,
+            description,
+            priority,
+            status,
+            due_date,
+            created_at
+        FROM tasks 
+        WHERE user_id = ?
+        ORDER BY created_at DESC
+    ");
+    $stmt->execute([$userId]);
+    $tasks = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    http_response_code(200);
+    echo json_encode([
+        'success' => true,
+        'tasks' => $tasks ?? []
+    ]);
+    
+} catch (PDOException $e) {
+    http_response_code(500);
+    echo json_encode([
+        'success' => false,
+        'error' => 'Database error',
+        'details' => $e->getMessage(),
+        'code' => $e->getCode()
+    ]);
 } catch (Exception $e) {
     http_response_code(500);
     echo json_encode([
-        'error' => 'Server error fetching tasks',
+        'success' => false,
+        'error' => 'Server error',
         'details' => $e->getMessage()
     ]);
 }

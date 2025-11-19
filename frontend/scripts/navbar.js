@@ -14,6 +14,66 @@ export function getCurrentUser() {
 }
 
 /**
+ * Theme Toggle Functionality
+ */
+function initThemeToggle() {
+  // Get saved theme or default to light
+  const savedTheme = localStorage.getItem('theme') || 'light';
+  document.documentElement.setAttribute('data-theme', savedTheme);
+  
+  // Apply theme immediately
+  if (savedTheme === 'dark') {
+    document.body.classList.add('dark-mode');
+  }
+  
+  updateThemeIcon(savedTheme);
+
+  // Theme toggle button click handler
+  const themeToggle = document.getElementById('theme-toggle');
+  if (themeToggle) {
+    themeToggle.addEventListener('click', (e) => {
+      e.preventDefault();
+      const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+      const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+      
+      console.log('Switching from', currentTheme, 'to', newTheme);
+      
+      document.documentElement.setAttribute('data-theme', newTheme);
+      localStorage.setItem('theme', newTheme);
+      
+      if (newTheme === 'dark') {
+        document.body.classList.add('dark-mode');
+      } else {
+        document.body.classList.remove('dark-mode');
+      }
+      
+      updateThemeIcon(newTheme);
+    });
+  } else {
+    console.warn('Theme toggle button not found');
+  }
+}
+
+/**
+ * Update theme toggle icon
+ */
+function updateThemeIcon(theme) {
+  const themeToggle = document.getElementById('theme-toggle');
+  if (themeToggle) {
+    const icon = themeToggle.querySelector('i');
+    if (icon) {
+      if (theme === 'dark') {
+        icon.className = 'bi bi-sun-fill';
+        themeToggle.title = 'Switch to Light Mode';
+      } else {
+        icon.className = 'bi bi-moon-fill';
+        themeToggle.title = 'Switch to Dark Mode';
+      }
+    }
+  }
+}
+
+/**
  * Load notifications from backend
  */
 async function loadNotifications() {
@@ -42,7 +102,7 @@ async function loadNotifications() {
       }
     }
 
-    // Get recent notifications - REMOVE ?count=true to get full list
+    // Get recent notifications
     const response = await fetch('http://localhost:8000/reminder.php', {
       headers: {
         'Authorization': `Bearer ${token}`
@@ -242,6 +302,11 @@ export function setupNavbarAuth() {
       item.style.display = 'block';
     });
   }
+  
+  // Initialize theme toggle
+  setTimeout(() => {
+    initThemeToggle();
+  }, 200);
 }
 
 /**
