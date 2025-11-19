@@ -73,7 +73,11 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    console.log('Fetching tasks for user:', user.user_id);
+    // Show loading state
+    const tbody = document.getElementById('taskTableBody');
+    if (tbody) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center"><div class="spinner-border spinner-border-sm me-2" role="status"></div>Loading tasks...</td></tr>';
+    }
     
     // Get sort preference
     const sortSelect = document.getElementById('sortSelect');
@@ -84,16 +88,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const actualSort = isPastTasks ? 'created_at' : sort;
 
     try {
-      // Fetch owned tasks
-      const res = await fetch(`http://localhost:8000/tasks/get_tasks.php`, {
-        headers: { 'Authorization': `Bearer ${getToken()}` }
-      });
+      const token = getToken();
+      
+      // Fetch both owned and shared tasks in parallel for better performance
+      const [ownedRes, sharedRes] = await Promise.all([
+        fetch(`http://localhost:8000/tasks/get_tasks.php`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }),
+        fetch('http://localhost:8000/share_task.php', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }).catch(err => {
+          console.warn('Could not fetch shared tasks:', err);
+          return { ok: false };
+        })
+      ]);
 
-      console.log('Response status:', res.status);
-      const data = await res.json();
-      console.log('Response data:', data);
+      const data = await ownedRes.json();
 
-      if (!res.ok) {
+      if (!ownedRes.ok) {
         console.error('Fetch tasks error:', data);
         showNotification('Error', 'Failed to load tasks: ' + (data.message || 'Unknown error'), 'error');
         return;
@@ -101,15 +113,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
       let ownedTasks = Array.isArray(data.tasks) ? data.tasks : Object.values(data.tasks);
       
-      // Fetch shared tasks
+      // Process shared tasks if the request succeeded
       let sharedTasks = [];
-      try {
-        const sharedRes = await fetch('http://localhost:8000/share_task.php', {
-          headers: { 'Authorization': `Bearer ${getToken()}` }
-        });
+      if (sharedRes.ok) {
         const sharedData = await sharedRes.json();
-        if (sharedRes.ok && sharedData.success) {
-          // Extract task data from shared tasks response and mark them as shared
+        if (sharedData.success) {
           sharedTasks = (sharedData.shared_tasks || []).map(st => ({
             ...st.task,
             isShared: true,
@@ -117,10 +125,7 @@ document.addEventListener('DOMContentLoaded', () => {
             sharedByEmail: st.shared_by_email,
             shareId: st.share_id
           }));
-          console.log('Fetched shared tasks:', sharedTasks.length);
         }
-      } catch (sharedErr) {
-        console.warn('Could not fetch shared tasks:', sharedErr);
       }
       
       // Combine owned and shared tasks
@@ -129,10 +134,8 @@ document.addEventListener('DOMContentLoaded', () => {
       // Filter for past tasks (completed only) if that view is selected
       if (isPastTasks) {
         tasks = tasks.filter(task => task.status === 'done');
-        console.log('Filtered to past tasks (completed):', tasks.length);
       }
       
-      console.log('Tasks to render (owned + shared):', tasks.length);
       renderTasks(tasks);
       if (window.profileRefresh) window.profileRefresh();
 
@@ -280,12 +283,13 @@ document.addEventListener('DOMContentLoaded', () => {
     tbody.innerHTML = '';
 
     if (!tasks.length) {
-      console.log('No tasks to display');
       tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted">No tasks found</td></tr>`;
       return;
     }
 
-    console.log('Rendering', tasks.length, 'tasks');
+    // Use DocumentFragment for better performance with many tasks
+    const fragment = document.createDocumentFragment();
+    
     tasks.forEach(task => {
       const tr = document.createElement('tr');
       const score = task.score || 0;
@@ -354,24 +358,28 @@ document.addEventListener('DOMContentLoaded', () => {
             `<span class="badge bg-info">View Only</span>`}
         </td>
       `;
-      tbody.appendChild(tr);
+      fragment.appendChild(tr);
     });
+    
+    // Append all rows at once for better performance
+    tbody.appendChild(fragment);
 
-    tbody.querySelectorAll('.edit-btn').forEach(btn =>
-      btn.addEventListener('click', () => openEditModal(btn.dataset.id))
-    );
-
-    tbody.querySelectorAll('.share-btn').forEach(btn =>
-      btn.addEventListener('click', () => openShareModal(btn.dataset.id))
-    );
-
-    tbody.querySelectorAll('.delete-btn').forEach(btn =>
-      btn.addEventListener('click', () => deleteTask(btn.dataset.id))
-    );
-
-    tbody.querySelectorAll('.done-btn').forEach(btn =>
-      btn.addEventListener('click', () => markAsDone(btn.dataset.id))
-    );
+    // Use event delegation for better performance with many tasks
+    tbody.addEventListener('click', (e) => {
+      const btn = e.target.closest('button');
+      if (!btn) return;
+      
+      const taskId = btn.dataset.id;
+      if (btn.classList.contains('edit-btn')) {
+        openEditModal(taskId);
+      } else if (btn.classList.contains('share-btn')) {
+        openShareModal(taskId);
+      } else if (btn.classList.contains('delete-btn')) {
+        deleteTask(taskId);
+      } else if (btn.classList.contains('done-btn')) {
+        markAsDone(taskId);
+      }
+    });
   };
 
   const openEditModal = taskId => {

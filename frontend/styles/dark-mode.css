@@ -342,6 +342,68 @@
   border-left-color: #0d6efd;
 }
 
+/* Task details modal in dark mode */
+[data-theme="dark"] .modal-content {
+  background-color: #16213e !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .modal-header {
+  background-color: #0f3460 !important;
+  border-bottom-color: #404040 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .modal-title {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .modal-body {
+  background-color: #16213e !important;
+  color: #eee !important;
+}
+
+[data-theme="dark"] .modal-body p {
+  color: #eee !important;
+}
+
+[data-theme="dark"] .modal-body strong {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .modal-body .alert {
+  background-color: #0f3460 !important;
+  color: #ffffff !important;
+  border-color: #404040 !important;
+}
+
+[data-theme="dark"] .modal-body .alert-info {
+  background-color: #1a4d7a !important;
+}
+
+[data-theme="dark"] .modal-body .alert-success {
+  background-color: #1a5d3a !important;
+}
+
+[data-theme="dark"] .modal-body .alert-warning {
+  background-color: #7a5d1a !important;
+}
+
+[data-theme="dark"] .modal-body .alert small,
+[data-theme="dark"] .modal-body .alert ul,
+[data-theme="dark"] .modal-body .alert li {
+  color: #eee !important;
+}
+
+[data-theme="dark"] .modal-footer {
+  background-color: #0f3460 !important;
+  border-top-color: #404040 !important;
+}
+
+[data-theme="dark"] .btn-close {
+  filter: invert(1) grayscale(100%) brightness(200%);
+}
+
 /* Theme toggle button */
 #theme-toggle {
   font-size: 1.3rem;

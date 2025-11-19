@@ -56,74 +56,71 @@ try {
     
     $stmt = $pdo->prepare("
         SELECT 
-            id,
-            title,
-            description,
-            priority,
-            status,
-            due_date,
-            created_at,
-            COALESCE(CAST(effort AS INTEGER), 1) as effort,
-            COALESCE(CAST(urgency AS INTEGER), 1) as urgency,
+            t.id,
+            t.title,
+            t.description,
+            t.priority,
+            t.status,
+            t.due_date,
+            t.created_at,
+            t.reminder_enabled,
+            t.reminder_time,
+            COALESCE(CAST(t.effort AS INTEGER), 1) as effort,
+            COALESCE(CAST(t.urgency AS INTEGER), 1) as urgency,
             -- Calculate priority score (1-3)
             CASE 
-                WHEN LOWER(priority) = 'high' THEN 3
-                WHEN LOWER(priority) = 'medium' THEN 2
+                WHEN LOWER(t.priority) = 'high' THEN 3
+                WHEN LOWER(t.priority) = 'medium' THEN 2
                 ELSE 1
             END as priority_score,
             -- Calculate deadline urgency (0-5)
             CASE 
-                WHEN due_date IS NULL THEN 0
-                WHEN due_date < CURRENT_DATE THEN 5
-                WHEN due_date = CURRENT_DATE THEN 4
-                WHEN due_date <= CURRENT_DATE + INTERVAL '1 day' THEN 3
-                WHEN due_date <= CURRENT_DATE + INTERVAL '3 days' THEN 2
-                WHEN due_date <= CURRENT_DATE + INTERVAL '7 days' THEN 1
+                WHEN t.due_date IS NULL THEN 0
+                WHEN t.due_date < CURRENT_DATE THEN 5
+                WHEN t.due_date = CURRENT_DATE THEN 4
+                WHEN t.due_date <= CURRENT_DATE + INTERVAL '1 day' THEN 3
+                WHEN t.due_date <= CURRENT_DATE + INTERVAL '3 days' THEN 2
+                WHEN t.due_date <= CURRENT_DATE + INTERVAL '7 days' THEN 1
                 ELSE 0
             END as deadline_urgency,
-            -- Total score: urgency + deadline_urgency + effort + priority_score
-            (COALESCE(CAST(urgency AS INTEGER), 1) + 
+            -- Total score
+            (COALESCE(CAST(t.urgency AS INTEGER), 1) + 
             CASE 
-                WHEN due_date IS NULL THEN 0
-                WHEN due_date < CURRENT_DATE THEN 5
-                WHEN due_date = CURRENT_DATE THEN 4
-                WHEN due_date <= CURRENT_DATE + INTERVAL '1 day' THEN 3
-                WHEN due_date <= CURRENT_DATE + INTERVAL '3 days' THEN 2
-                WHEN due_date <= CURRENT_DATE + INTERVAL '7 days' THEN 1
+                WHEN t.due_date IS NULL THEN 0
+                WHEN t.due_date < CURRENT_DATE THEN 5
+                WHEN t.due_date = CURRENT_DATE THEN 4
+                WHEN t.due_date <= CURRENT_DATE + INTERVAL '1 day' THEN 3
+                WHEN t.due_date <= CURRENT_DATE + INTERVAL '3 days' THEN 2
+                WHEN t.due_date <= CURRENT_DATE + INTERVAL '7 days' THEN 1
                 ELSE 0
             END + 
-            COALESCE(CAST(effort AS INTEGER), 1) + 
+            COALESCE(CAST(t.effort AS INTEGER), 1) + 
             CASE 
-                WHEN LOWER(priority) = 'high' THEN 3
-                WHEN LOWER(priority) = 'medium' THEN 2
+                WHEN LOWER(t.priority) = 'high' THEN 3
+                WHEN LOWER(t.priority) = 'medium' THEN 2
                 ELSE 1
-            END) as score
-        FROM tasks 
-        WHERE user_id = ?
-        ORDER BY created_at DESC
+            END) as score,
+            -- Get share count in a single query
+            COALESCE((SELECT COUNT(*) FROM shared_tasks WHERE task_id = t.id), 0) as shared_count,
+            CASE WHEN EXISTS(SELECT 1 FROM shared_tasks WHERE task_id = t.id) THEN true ELSE false END as has_been_shared
+        FROM tasks t
+        WHERE t.user_id = ?
+        ORDER BY t.created_at DESC
     ");
     $stmt->execute([$userId]);
     $tasks = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    // Fetch shared recipients for each task
+    // Convert numeric fields to proper types
     foreach ($tasks as &$task) {
-        // Convert numeric fields to integers
-        $task['effort'] = isset($task['effort']) ? (int)$task['effort'] : 1;
-        $task['urgency'] = isset($task['urgency']) ? (int)$task['urgency'] : 1;
-        $task['priority_score'] = isset($task['priority_score']) ? (int)$task['priority_score'] : 1;
-        $task['deadline_urgency'] = isset($task['deadline_urgency']) ? (int)$task['deadline_urgency'] : 0;
-        $task['score'] = isset($task['score']) ? (int)$task['score'] : 0;
-        
-        $stmt = $pdo->prepare("
-            SELECT shared_with_email, shared_at, id as share_id
-            FROM shared_tasks
-            WHERE task_id = ?
-            ORDER BY shared_at DESC
-        ");
-        $stmt->execute([$task['id']]);
-        $task['shared_with'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        $task['shared_count'] = count($task['shared_with']);
-        $task['has_been_shared'] = $task['shared_count'] > 0;
+        $task['effort'] = (int)$task['effort'];
+        $task['urgency'] = (int)$task['urgency'];
+        $task['priority_score'] = (int)$task['priority_score'];
+        $task['deadline_urgency'] = (int)$task['deadline_urgency'];
+        $task['score'] = (int)$task['score'];
+        $task['shared_count'] = (int)$task['shared_count'];
+        $task['has_been_shared'] = (bool)$task['has_been_shared'];
+        $task['reminder_enabled'] = (bool)$task['reminder_enabled'];
+        $task['shared_with'] = []; // Empty array for compatibility
     }
     unset($task);
     
