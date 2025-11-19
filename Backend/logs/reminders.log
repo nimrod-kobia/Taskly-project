@@ -1,0 +1,14 @@
+[2025-11-19 10:51:20] === Starting Automated Reminder Check ===
+[2025-11-19 10:51:21] Found 6 active tasks with due dates
+[2025-11-19 10:51:21] Summary: 0 24-hour reminders, 0 10-minute reminders sent
+[2025-11-19 10:51:21] === Reminder Check Completed Successfully ===
+
+[2025-11-19 10:59:05] === Starting Automated Reminder Check ===
+[2025-11-19 10:59:06] Found 9 active tasks with due dates
+[2025-11-19 10:59:06] Sending 10-minute reminder for task #24: Test: 10-Minute Reminder Task
+[2025-11-19 10:59:11] ✓ 10-minute reminder sent for task #24
+[2025-11-19 10:59:11] Sending 24-hour reminder for task #23: Test: 24-Hour Reminder Task
+[2025-11-19 10:59:16] ✓ 24-hour reminder sent for task #23
+[2025-11-19 10:59:16] Summary: 1 24-hour reminders, 1 10-minute reminders sent
+[2025-11-19 10:59:16] === Reminder Check Completed Successfully ===
+
