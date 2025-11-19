@@ -27,32 +27,159 @@
 <body class="d-flex flex-column min-vh-100">
   <div id="navbar-placeholder"></div>
 
-  <main class="flex-grow-1">
-  <div class="container my-4">
-    <h2 class="mb-3">Task Calendar</h2>
-    <div id="calendarContainer" class="shadow-sm rounded p-3">
-      <div id="calendar"></div>
+  <main class="flex-grow-1 bg-light">
+    <div class="container my-4">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2 class="mb-0">
+          <i class="bi bi-calendar3 me-2 text-primary"></i>Task Calendar
+        </h2>
+      </div>
+      
+      <!-- Priority Legend -->
+      <div class="calendar-legend mb-3">
+        <div class="legend-item">
+          <div class="legend-color" style="background-color: #dc3545;"></div>
+          <span>High Priority</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background-color: #ffc107;"></div>
+          <span>Medium Priority</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background-color: #198754;"></div>
+          <span>Low Priority</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background-color: #6c757d;"></div>
+          <span>No Priority</span>
+        </div>
+      </div>
+      
+      <div id="calendarContainer" class="shadow-sm rounded p-3">
+        <div id="calendar"></div>
+      </div>
     </div>
-  </div>
   </main>
 
   <style>
+    /* Calendar Container */
     #calendarContainer {
-      max-width: 1200px;
+      max-width: 1400px;
       margin: 0 auto;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08) !important;
+      overflow: hidden;
     }
     
+    /* Calendar Base */
     #calendar {
       font-size: 0.85rem;
+      padding: 10px;
+    }
+    
+    /* Toolbar Styling - Blue Theme */
+    .fc .fc-toolbar {
+      padding: 15px 10px;
+      background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
+      border-radius: 8px 8px 0 0;
+      margin: -10px -10px 20px -10px;
     }
     
     .fc .fc-toolbar-title {
-      font-size: 1.3rem;
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: white;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .fc .fc-button {
+      background: rgba(255,255,255,0.2);
+      border: 1px solid rgba(255,255,255,0.3);
+      color: white;
+      font-weight: 500;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      transition: all 0.3s ease;
+    }
+    
+    .fc .fc-button:hover {
+      background: rgba(255,255,255,0.3);
+      border-color: rgba(255,255,255,0.5);
+      transform: translateY(-2px);
+    }
+    
+    .fc .fc-button:active,
+    .fc .fc-button-active {
+      background: rgba(255,255,255,0.4) !important;
+      border-color: white !important;
+    }
+    
+    /* Day Headers */
+    .fc .fc-col-header-cell {
+      background: #f8f9fa;
+      padding: 12px 8px;
+      font-weight: 600;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #495057;
+      border: none;
+    }
+    
+    /* Day Cells */
+    .fc .fc-daygrid-day {
+      background: white;
+      border: 1px solid #e9ecef;
+      transition: background-color 0.2s ease;
+    }
+    
+    .fc .fc-daygrid-day:hover {
+      background: #f0f7ff;
+      cursor: pointer;
     }
     
     .fc .fc-daygrid-day-number {
-      font-size: 0.85rem;
-      padding: 2px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      padding: 8px;
+      color: #495057;
+    }
+    
+    /* Today Highlight - Blue Theme */
+    .fc .fc-day-today {
+      background: #cfe2ff !important;
+      border: 2px solid #0d6efd !important;
+    }
+    
+    .fc .fc-day-today .fc-daygrid-day-number {
+      background: #0d6efd;
+      color: white;
+      border-radius: 50%;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 4px;
+    }
+    
+    /* Events */
+    .fc-event {
+      border: none;
+      border-radius: 4px;
+      padding: 2px 6px;
+      margin: 2px 0;
+      font-size: 0.8rem;
+      font-weight: 500;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+      transition: all 0.2s ease;
+    }
+    
+    .fc-event:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+      cursor: pointer;
     }
     
     .fc .fc-daygrid-event {
@@ -60,9 +187,70 @@
       padding: 1px 2px;
     }
     
+    /* Priority Legend */
+    .calendar-legend {
+      display: flex;
+      gap: 20px;
+      justify-content: center;
+      flex-wrap: wrap;
+      padding: 15px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.9rem;
+      color: #495057;
+    }
+    
+    .legend-color {
+      width: 20px;
+      height: 20px;
+      border-radius: 4px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+    
+    /* Modal Enhancements - Blue Theme */
+    .modal-header {
+      background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
+      color: white;
+      border-bottom: none;
+    }
+    
+    .modal-header .btn-close {
+      filter: brightness(0) invert(1);
+    }
+    
+    .modal-title {
+      font-weight: 600;
+    }
+    
+    /* Task Cards in Modal */
+    .card.mb-2 {
+      border-left: 4px solid;
+      transition: all 0.2s ease;
+    }
+    
+    .card.mb-2:hover {
+      transform: translateX(5px);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    /* Mobile Responsive */
     @media (max-width: 768px) {
       #calendar {
         font-size: 0.75rem;
+        padding: 5px;
+      }
+      
+      .fc .fc-toolbar {
+        padding: 10px 5px;
+        flex-direction: column;
+        gap: 10px;
       }
       
       .fc .fc-toolbar-title {
@@ -72,6 +260,35 @@
       .fc .fc-button {
         padding: 0.25rem 0.4rem !important;
         font-size: 0.75rem !important;
+      }
+      
+      .fc .fc-col-header-cell {
+        font-size: 0.7rem;
+        padding: 8px 4px;
+      }
+      
+      .fc .fc-daygrid-day-number {
+        font-size: 0.75rem;
+        padding: 4px;
+      }
+      
+      .fc .fc-day-today .fc-daygrid-day-number {
+        width: 24px;
+        height: 24px;
+      }
+      
+      .calendar-legend {
+        gap: 10px;
+        padding: 10px;
+      }
+      
+      .legend-item {
+        font-size: 0.8rem;
+      }
+      
+      .legend-color {
+        width: 16px;
+        height: 16px;
       }
     }
   </style>
@@ -89,6 +306,4 @@
   <!-- ✅ Your custom script -->
   <script type="module" src="scripts/calendar.js"></script>
 </body>
-</html>
-
 </html>
