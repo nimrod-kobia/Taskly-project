@@ -22,3 +22,4 @@ try {
     error_log("Cron job error: " . $e->getMessage());
     echo "Error: " . $e->getMessage() . "\n";
 }
+
