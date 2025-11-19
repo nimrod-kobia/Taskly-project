@@ -34,7 +34,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       const ownedData = await ownedRes.json();
       if (!ownedRes.ok || !ownedData.success) throw new Error(ownedData.message || ownedData.error || 'Failed to fetch tasks');
       
-      // Fetch shared tasks
+      // Mark outgoing shares in owned tasks
+      const ownedTasks = (ownedData.tasks || []).map(t => ({
+        ...t,
+        isOutgoingShare: t.has_been_shared && t.shared_count > 0,
+        sharedCount: t.shared_count || 0
+      }));
+      
+      // Fetch shared tasks (incoming)
       let sharedTasks = [];
       try {
         const sharedRes = await fetch('http://localhost:8000/share_task.php', {
@@ -55,17 +62,19 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
       
       // Combine owned and shared tasks
-      const allTasks = [...(ownedData.tasks || []), ...sharedTasks];
+      const allTasks = [...ownedTasks, ...sharedTasks];
       
       // Map tasks to FullCalendar events
       return allTasks.map(t => {
         const reminderIcon = t.reminder_enabled ? '🔔 ' : '';
-        const sharedIcon = t.isShared ? '👥 ' : '';
+        // Different icons: 👥 for incoming shares, 📤 for outgoing shares
+        const sharedIcon = t.isShared ? '👥 ' : (t.isOutgoingShare ? '📤 ' : '');
         return {
           id: t.id,
           title: sharedIcon + reminderIcon + t.title,
           start: t.due_date || t.created_at,
-          color: t.isShared ? '#17a2b8' : getUrgencyColor(t.priority), // Cyan for shared tasks
+          // Cyan for incoming shares, light green for outgoing shares, priority color for owned tasks
+          color: t.isShared ? '#17a2b8' : (t.isOutgoingShare ? '#28a745' : getUrgencyColor(t.priority)),
           extendedProps: {
             description: t.description,
             priority: t.priority,
@@ -76,7 +85,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             urgency: t.urgency,
             isShared: t.isShared || false,
             sharedBy: t.sharedBy,
-            sharedByEmail: t.sharedByEmail
+            sharedByEmail: t.sharedByEmail,
+            isOutgoingShare: t.isOutgoingShare || false,
+            sharedCount: t.sharedCount || 0
           }
         };
       });
@@ -376,7 +387,7 @@ function showTaskDetailsModal(event) {
     <div class="modal-dialog">
       <div class="modal-content">
         <div class="modal-header">
-          <h5 class="modal-title">${event.title.replace('🔔 ', '').replace('👥 ', '')}</h5>
+          <h5 class="modal-title">${event.title.replace('🔔 ', '').replace('👥 ', '').replace('📤 ', '')}</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
@@ -384,6 +395,12 @@ function showTaskDetailsModal(event) {
             <div class="alert alert-info">
               <i class="bi bi-share"></i> <strong>Shared Task</strong>
               <br><small>Shared by: ${props.sharedBy} (${props.sharedByEmail})</small>
+            </div>
+          ` : ''}
+          ${props.isOutgoingShare ? `
+            <div class="alert alert-success">
+              <i class="bi bi-send-fill"></i> <strong>Shared with Others</strong>
+              <br><small>Shared with ${props.sharedCount} person(s)</small>
             </div>
           ` : ''}
           <p><strong>Due Date:</strong> ${event.start.toLocaleDateString()}</p>

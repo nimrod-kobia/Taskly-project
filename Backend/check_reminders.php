@@ -28,22 +28,29 @@ try {
     // 2. reminder_time <= current time
     // 3. status is 'todo' (not started yet)
     // 4. last_notification_sent is NULL or was sent more than 1 hour ago
+    // Include both owned tasks and tasks shared with the user
     $stmt = $pdo->prepare("
-        SELECT id, title, description, due_date, priority, status, reminder_time
-        FROM tasks 
-        WHERE user_id = ? 
-        AND reminder_enabled = true 
-        AND reminder_time IS NOT NULL
-        AND reminder_time <= ?
-        AND status = 'todo'
+        SELECT DISTINCT t.id, t.title, t.description, t.due_date, t.priority, t.status, t.reminder_time,
+               CASE WHEN t.user_id = ? THEN false ELSE true END as is_shared,
+               u.full_name as shared_by
+        FROM tasks t
+        LEFT JOIN shared_tasks st ON t.id = st.task_id
+        LEFT JOIN users u ON t.user_id = u.id
+        WHERE (t.user_id = ? OR st.shared_with_email = (
+            SELECT email FROM users WHERE id = ?
+        ))
+        AND t.reminder_enabled = true 
+        AND t.reminder_time IS NOT NULL
+        AND t.reminder_time <= ?
+        AND t.status = 'todo'
         AND (
-            last_notification_sent IS NULL 
-            OR last_notification_sent < (NOW() - INTERVAL '1 hour')
+            t.last_notification_sent IS NULL 
+            OR t.last_notification_sent < (NOW() - INTERVAL '1 hour')
         )
-        ORDER BY reminder_time ASC
+        ORDER BY t.reminder_time ASC
     ");
     
-    $stmt->execute([$userId, $currentTime]);
+    $stmt->execute([$userId, $userId, $userId, $currentTime]);
     $tasks = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
     // Update last_notification_sent for these tasks

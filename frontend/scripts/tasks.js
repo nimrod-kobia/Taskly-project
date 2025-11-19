@@ -84,6 +84,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const actualSort = isPastTasks ? 'created_at' : sort;
 
     try {
+      // Fetch owned tasks
       const res = await fetch(`http://localhost:8000/tasks.php?user_id=${user.user_id}&sort=${actualSort}`, {
         headers: { 'Authorization': `Bearer ${getToken()}` }
       });
@@ -98,7 +99,32 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      tasks = Array.isArray(data.tasks) ? data.tasks : Object.values(data.tasks);
+      let ownedTasks = Array.isArray(data.tasks) ? data.tasks : Object.values(data.tasks);
+      
+      // Fetch shared tasks
+      let sharedTasks = [];
+      try {
+        const sharedRes = await fetch('http://localhost:8000/share_task.php', {
+          headers: { 'Authorization': `Bearer ${getToken()}` }
+        });
+        const sharedData = await sharedRes.json();
+        if (sharedRes.ok && sharedData.success) {
+          // Extract task data from shared tasks response and mark them as shared
+          sharedTasks = (sharedData.shared_tasks || []).map(st => ({
+            ...st.task,
+            isShared: true,
+            sharedBy: st.shared_by_name,
+            sharedByEmail: st.shared_by_email,
+            shareId: st.share_id
+          }));
+          console.log('Fetched shared tasks:', sharedTasks.length);
+        }
+      } catch (sharedErr) {
+        console.warn('Could not fetch shared tasks:', sharedErr);
+      }
+      
+      // Combine owned and shared tasks
+      tasks = [...ownedTasks, ...sharedTasks];
       
       // Filter for past tasks (completed only) if that view is selected
       if (isPastTasks) {
@@ -106,7 +132,7 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('Filtered to past tasks (completed):', tasks.length);
       }
       
-      console.log('Tasks to render:', tasks.length);
+      console.log('Tasks to render (owned + shared):', tasks.length);
       renderTasks(tasks);
       if (window.profileRefresh) window.profileRefresh();
 
@@ -267,6 +293,20 @@ document.addEventListener('DOMContentLoaded', () => {
       
       const reminderIcon = task.reminder_enabled ? '<i class="bi bi-bell-fill text-warning" title="Reminder enabled"></i> ' : '';
       
+      // Show different icons for incoming vs outgoing shares
+      let sharedIcon = '';
+      let sharedInfo = '';
+      
+      if (task.isShared) {
+        // Task shared WITH you (incoming)
+        sharedIcon = '<i class="bi bi-share-fill text-info" title="Shared by ' + task.sharedBy + '"></i> ';
+        sharedInfo = '<br><small class="text-muted"><i class="bi bi-person"></i> Shared by ' + task.sharedBy + '</small>';
+      } else if (task.has_been_shared && task.shared_count > 0) {
+        // Task you shared WITH others (outgoing)
+        sharedIcon = '<i class="bi bi-send-fill text-success" title="Shared with ' + task.shared_count + ' person(s)"></i> ';
+        sharedInfo = '<br><small class="text-muted"><i class="bi bi-people"></i> Shared with ' + task.shared_count + ' person(s)</small>';
+      }
+      
       // Normalize status and get proper display values
       const status = (task.status || 'todo').toLowerCase();
       let statusBadge = '';
@@ -282,19 +322,21 @@ document.addEventListener('DOMContentLoaded', () => {
       
       tr.innerHTML = `
         <td><span class="badge bg-${scoreColor}">${score}</span></td>
-        <td>${reminderIcon}${task.title}</td>
-        <td>${task.description || ''}</td>
+        <td>${sharedIcon}${reminderIcon}${task.title}</td>
+        <td>${task.description || ''}${sharedInfo}</td>
         <td>${task.due_date || ''}</td>
         <td>${statusBadge}</td>
         <td>
-          <button class="btn btn-sm btn-primary edit-btn" data-id="${task.id}">Edit</button>
-          <button class="btn btn-sm btn-info share-btn" data-id="${task.id}">
+          ${!task.isShared ? `<button class="btn btn-sm btn-primary edit-btn" data-id="${task.id}">Edit</button>` : ''}
+          ${!task.isShared ? `<button class="btn btn-sm btn-info share-btn" data-id="${task.id}">
             <i class="bi bi-share"></i> Share
-          </button>
-          ${task.status !== 'done' ? `<button class="btn btn-sm btn-success done-btn" data-id="${task.id}" title="Mark as Done">
+          </button>` : ''}
+          ${task.status !== 'done' && !task.isShared ? `<button class="btn btn-sm btn-success done-btn" data-id="${task.id}" title="Mark as Done">
             <i class="bi bi-check-circle"></i> Done
           </button>` : ''}
-          <button class="btn btn-sm btn-danger delete-btn" data-id="${task.id}">Delete</button>
+          ${!task.isShared ? 
+            `<button class="btn btn-sm btn-danger delete-btn" data-id="${task.id}">Delete</button>` :
+            `<span class="badge bg-info">View Only</span>`}
         </td>
       `;
       tbody.appendChild(tr);
@@ -383,23 +425,29 @@ document.addEventListener('DOMContentLoaded', () => {
       
       if (res.ok && data.success && data.reminders.length > 0) {
         data.reminders.forEach(task => {
+          const sharedInfo = task.is_shared && task.shared_by 
+            ? `\n👥 Shared by ${task.shared_by}` 
+            : '';
+          
           showNotification(
             '⏰ Task Reminder', 
-            `"${task.title}" is due ${task.due_date ? new Date(task.due_date).toLocaleDateString() : 'soon'}!\nClick to start working on it.`,
+            `"${task.title}" is due ${task.due_date ? new Date(task.due_date).toLocaleDateString() : 'soon'}!${sharedInfo}\nClick to start working on it.`,
             'warning'
           );
         });
         
-        // Auto-transition reminded tasks to 'inprogress'
+        // Auto-transition reminded tasks to 'inprogress' (only for owned tasks, not shared ones)
         for (const task of data.reminders) {
-          await fetch('http://localhost:8000/tasks.php', {
-            method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${getToken()}`
-            },
-            body: JSON.stringify({ id: task.id, status: 'inprogress' })
-          });
+          if (!task.is_shared) {
+            await fetch('http://localhost:8000/tasks.php', {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${getToken()}`
+              },
+              body: JSON.stringify({ id: task.id, status: 'inprogress' })
+            });
+          }
         }
         
         // Refresh tasks to show updated statuses
