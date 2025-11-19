@@ -57,7 +57,7 @@ try {
                            ELSE 0
                        END as deadline_urgency,
                        -- Total score: urgency (1-10) + deadline_urgency (0-5) + effort (1-10) + priority_score (1-3)
-                       COALESCE(urgency, 1) + 
+                       COALESCE(CAST(urgency AS INTEGER), 1) + 
                        CASE 
                            WHEN due_date IS NULL THEN 0
                            WHEN due_date < CURRENT_DATE THEN 5
@@ -77,7 +77,7 @@ try {
                 WHERE user_id = ? 
                 ORDER BY 
                     CASE WHEN ? = 'score' THEN (
-                        COALESCE(urgency, 1) + 
+                        COALESCE(CAST(urgency AS INTEGER), 1) + 
                         CASE 
                             WHEN due_date IS NULL THEN 0
                             WHEN due_date < CURRENT_DATE THEN 5
