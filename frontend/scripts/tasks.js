@@ -180,20 +180,40 @@ document.addEventListener('DOMContentLoaded', () => {
   // === MARK AS DONE ===
   const markAsDone = async id => {
     try {
+      // Find the task to check its due_date
+      const task = tasks.find(t => t.id == id);
+      const today = new Date().toISOString().split('T')[0];
+      
+      // Prepare update data
+      const updateData = { 
+        id: id, 
+        status: 'done'
+      };
+      
+      // If task has a due_date in the future, update it to today
+      if (task && task.due_date) {
+        const dueDate = new Date(task.due_date);
+        const todayDate = new Date(today);
+        
+        if (dueDate > todayDate) {
+          updateData.due_date = today;
+        }
+      }
+      
       const res = await fetch('http://localhost:8000/tasks.php', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${getToken()}`
         },
-        body: JSON.stringify({ id: id, status: 'done' })
+        body: JSON.stringify(updateData)
       });
       const data = await res.json();
       if (res.ok && data.success) {
         showNotification('Success', 'Task marked as done!', 'success');
         fetchTasks();
       } else {
-        showNotification('Error', data.error || 'Failed to update task', 'error');
+        showNotification('Error', data.error || data.message || 'Failed to update task', 'error');
       }
     } catch (err) {
       console.error('Mark as done error:', err);
@@ -460,11 +480,43 @@ const renderKanban = (tasks) => {
     statusGroups[col.key].forEach(task => {
       const taskCard = document.createElement('div');
       taskCard.className = 'card mb-2';
+      
+      // Calculate score and determine color
+      const score = task.score || 0;
+      const scoreColor = score >= 15 ? 'danger' : score >= 10 ? 'warning' : 'success';
+      
+      // Format due date for better readability
+      let dueDateDisplay = 'N/A';
+      if (task.due_date) {
+        const dueDate = new Date(task.due_date);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        dueDate.setHours(0, 0, 0, 0);
+        
+        const diffTime = dueDate - today;
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        
+        if (diffDays < 0) {
+          dueDateDisplay = `<span class="text-danger">${task.due_date} (Overdue)</span>`;
+        } else if (diffDays === 0) {
+          dueDateDisplay = `<span class="text-warning">${task.due_date} (Today)</span>`;
+        } else if (diffDays === 1) {
+          dueDateDisplay = `<span class="text-warning">${task.due_date} (Tomorrow)</span>`;
+        } else {
+          dueDateDisplay = task.due_date;
+        }
+      }
+      
+      const reminderIcon = task.reminder_enabled ? '<i class="bi bi-bell-fill text-warning" title="Reminder enabled"></i> ' : '';
+      
       taskCard.innerHTML = `
         <div class="card-body p-2">
-          <h6 class="card-title mb-1">${task.title}</h6>
+          <div class="d-flex justify-content-between align-items-start mb-1">
+            <h6 class="card-title mb-0">${reminderIcon}${task.title}</h6>
+            <span class="badge bg-${scoreColor}" title="Priority Score">${score}</span>
+          </div>
           <p class="card-text mb-1 small">${task.description || ''}</p>
-          <p class="card-text mb-0 small text-muted">Due: ${task.due_date || 'N/A'}</p>
+          <p class="card-text mb-0 small text-muted">Due: ${dueDateDisplay}</p>
         </div>
       `;
       cardBody.appendChild(taskCard);

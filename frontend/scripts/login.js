@@ -95,20 +95,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (response.ok && result.success) {
       // ✅ Save JWT and user info
+      // Clear any existing tokens first
+      localStorage.removeItem('jwt');
+      localStorage.removeItem('user');
+      sessionStorage.removeItem('jwt');
+      sessionStorage.removeItem('user');
+      
       if (rememberMe) {
-        // Save to localStorage for persistent login
+        // Save to localStorage for persistent login (stays after browser close)
         localStorage.setItem('jwt', result.token);
         localStorage.setItem('user', JSON.stringify(result.user));
-        localStorage.setItem('rememberMe', 'true');
       } else {
-        // Save to sessionStorage for session-only login
+        // Save to sessionStorage for session-only login (cleared when browser closes)
         sessionStorage.setItem('jwt', result.token);
         sessionStorage.setItem('user', JSON.stringify(result.user));
-        localStorage.removeItem('rememberMe');
       }
 
-      // Automatically redirect without alert
-      window.location.href = 'tasks.html';
+      showNotification('Success', 'Login successful! Redirecting...', 'success');
+      
+      // Redirect after a brief delay to show success message
+      setTimeout(() => {
+        window.location.href = 'tasks.html';
+      }, 500);
     } else {
       // Show specific error message
       const errorMessage = result.error || result.message || 'Invalid email or password';
@@ -123,35 +131,4 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   });
 
-  // ✅ Auto redirect if already logged in (but skip if you're already on login page)
-  const token = localStorage.getItem('jwt') || sessionStorage.getItem('jwt');
-
-  // Stop auto-redirect if you’re literally on login.html
-  if (window.location.pathname.includes('login.html')) {
-    console.log('On login page → skipping auto redirect.');
-    return;
-  }
-
-  if (token) {
-    try {
-      const payloadBase64 = token.split('.')[1];
-      if (!payloadBase64) throw new Error('Malformed token');
-      
-      const payload = JSON.parse(atob(payloadBase64));
-      const isExpired = payload.exp * 1000 < Date.now();
-
-      if (!isExpired) {
-        console.log('Valid token found → redirecting to tasks.html');
-        window.location.replace('tasks.html');
-      } else {
-        console.warn('Token expired → clearing localStorage');
-        localStorage.removeItem('jwt');
-        localStorage.removeItem('user');
-      }
-    } catch (e) {
-      console.warn('Invalid stored token → clearing it.', e);
-      localStorage.removeItem('jwt');
-      localStorage.removeItem('user');
-    }
-  }
 });

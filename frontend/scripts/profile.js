@@ -111,32 +111,113 @@ document.addEventListener('DOMContentLoaded', async () => {
     await fetchAndRenderTasks();
   };
 
+  // ===== Toast Notification Helper =====
+  const showNotification = (title, message, type = 'info') => {
+    const container = document.getElementById('toastContainer');
+    if (!container) {
+      // Create container if it doesn't exist
+      const newContainer = document.createElement('div');
+      newContainer.id = 'toastContainer';
+      newContainer.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+      document.body.appendChild(newContainer);
+      return showNotification(title, message, type);
+    }
+
+    const bgClass = type === 'success' ? 'bg-success' : 
+                    type === 'error' ? 'bg-danger' : 
+                    type === 'warning' ? 'bg-warning' : 'bg-primary';
+
+    const toastEl = document.createElement('div');
+    toastEl.className = `toast align-items-center text-white ${bgClass} border-0`;
+    toastEl.setAttribute('role', 'alert');
+    toastEl.setAttribute('aria-live', 'assertive');
+    toastEl.setAttribute('aria-atomic', 'true');
+    
+    toastEl.innerHTML = `
+      <div class="d-flex">
+        <div class="toast-body">
+          <strong>${title}</strong><br>${message}
+        </div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+      </div>
+    `;
+    
+    container.appendChild(toastEl);
+    const toast = new bootstrap.Toast(toastEl, { delay: 3000 });
+    toast.show();
+    
+    toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
+  };
+
   // ===== Account Settings Form =====
   document.getElementById('accountSettingsForm')?.addEventListener('submit', async e => {
     e.preventDefault();
-    const fullName = document.getElementById('fullName').value;
-    const email = document.getElementById('email').value;
-    const password = document.getElementById('password').value;
+    const fullName = document.getElementById('fullName').value.trim();
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value.trim();
+
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    const originalText = submitBtn.textContent;
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Saving...';
 
     try {
-      const res = await fetch('/Backend/user/update_user.php', {
-        method: 'POST',
+      const body = {};
+      if (fullName) body.fullName = fullName;
+      if (email) body.email = email;
+      if (password) body.password = password;
+
+      if (Object.keys(body).length === 0) {
+        showNotification('Validation Error', 'No changes to save', 'warning');
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
+        return;
+      }
+
+      console.log('Updating profile with data:', body);
+      
+      const res = await fetch('http://localhost:8000/user.php', {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${getToken()}`
         },
-        body: JSON.stringify({ fullName, email, password })
+        body: JSON.stringify(body)
       });
-      const data = await res.json();
+      
+      console.log('Response status:', res.status);
+      
+      // Get response text first to handle non-JSON responses
+      const text = await res.text();
+      console.log('Response text:', text);
+      
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (parseErr) {
+        console.error('Failed to parse response as JSON:', text);
+        showNotification('Error', 'Server returned invalid response. Check console for details.', 'error');
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
+        return;
+      }
+      
       if (res.ok && data.success) {
-        alert('Account updated successfully!');
+        showNotification('Success', 'Account updated successfully!', 'success');
+        // Clear password field after successful update
+        document.getElementById('password').value = '';
         window.profileRefresh();
       } else {
-        alert(data.error || 'Failed to update account.');
+        const errorMsg = data.error || data.message || 'Failed to update account.';
+        console.error('Update failed:', errorMsg, data);
+        showNotification('Error', errorMsg, 'error');
       }
     } catch (err) {
       console.error('Error updating account:', err);
-      alert('Server error while updating account.');
+      showNotification('Error', 'Server error while updating account: ' + err.message, 'error');
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = originalText;
     }
   });
 

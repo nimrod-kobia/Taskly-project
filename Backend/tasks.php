@@ -191,7 +191,7 @@ try {
             $updates = [];
             $params = [];
             
-            if (isset($data['title'])) {
+            if (isset($data['title']) && $data['title'] !== '') {
                 $updates[] = "title = ?";
                 $params[] = trim($data['title']);
             }
@@ -203,29 +203,42 @@ try {
                 $updates[] = "due_date = ?";
                 $params[] = !empty($data['due_date']) ? $data['due_date'] : null;
             }
-            if (isset($data['priority'])) {
+            if (isset($data['priority']) && $data['priority'] !== '') {
                 $updates[] = "priority = ?";
                 $params[] = $data['priority'];
             }
-            if (isset($data['status'])) {
+            if (isset($data['status']) && $data['status'] !== '') {
                 $updates[] = "status = ?";
                 $params[] = strtolower($data['status']);
+                
+                // When status changes to 'inprogress', reset last_notification_sent
+                if (strtolower($data['status']) === 'inprogress') {
+                    $updates[] = "last_notification_sent = NULL";
+                }
             }
-            if (isset($data['effort'])) {
+            if (isset($data['effort']) && $data['effort'] !== '') {
                 $updates[] = "effort = ?";
                 $params[] = intval($data['effort']);
             }
-            if (isset($data['reminder_enabled'])) {
+            if (isset($data['urgency']) && $data['urgency'] !== '') {
+                $updates[] = "urgency = ?";
+                $params[] = intval($data['urgency']);
+            }
+            if (isset($data['reminder_enabled']) && $data['reminder_enabled'] !== '') {
                 $updates[] = "reminder_enabled = ?";
-                $params[] = (bool)$data['reminder_enabled'];
+                // Properly convert to boolean - PostgreSQL requires true boolean type
+                $reminderValue = $data['reminder_enabled'];
+                if (is_bool($reminderValue)) {
+                    $params[] = $reminderValue;
+                } else if ($reminderValue === 'true' || $reminderValue === '1' || $reminderValue === 1) {
+                    $params[] = true;
+                } else {
+                    $params[] = false;
+                }
             }
             if (isset($data['reminder_time'])) {
                 $updates[] = "reminder_time = ?";
                 $params[] = !empty($data['reminder_time']) ? $data['reminder_time'] : null;
-            }
-            // When status changes to 'inprogress', reset last_notification_sent
-            if (isset($data['status']) && strtolower($data['status']) === 'inprogress') {
-                $updates[] = "last_notification_sent = NULL";
             }
             
             if (empty($updates)) {
