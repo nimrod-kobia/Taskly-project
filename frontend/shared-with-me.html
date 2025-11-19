@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Shared with Me — Taskly</title>
+
+  <!-- Bootstrap & Icons -->
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  />
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css"
+  />
+
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="styles/style.css" />
+
+  <script>
+    // Authentication guard - redirect to login if not authenticated
+    (function() {
+      const token = localStorage.getItem('jwt') || sessionStorage.getItem('jwt');
+      if (!token) {
+        window.location.href = 'login.html';
+      }
+    })();
+  </script>
+</head>
+
+<body class="d-flex flex-column min-vh-100">
+  <!-- Navbar placeholder -->
+  <div id="navbar-placeholder"></div>
+
+  <!-- Main Content -->
+  <main class="flex-grow-1">
+    <div class="container my-4">
+      <h2 class="mb-4">
+        <i class="bi bi-share"></i> Tasks Shared with Me
+      </h2>
+
+      <div id="sharedTasksList" class="row">
+        <!-- Shared tasks will be loaded here -->
+        <div class="col-12 text-center py-5">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+          <p class="mt-2 text-muted">Loading shared tasks...</p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-dark text-light text-center py-3 mt-auto">
+    <p>&copy; 2025 Taskly. All rights reserved.</p>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script type="module" src="scripts/navbar.js"></script>
+  <script>
+    // Shared tasks functionality
+    document.addEventListener('DOMContentLoaded', async () => {
+      const getToken = () => localStorage.getItem('jwt') || sessionStorage.getItem('jwt');
+      const sharedTasksList = document.getElementById('sharedTasksList');
+
+      try {
+        const res = await fetch('http://localhost:8000/share_task.php', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${getToken()}`
+          }
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || !data.success) {
+          throw new Error(data.message || 'Failed to load shared tasks');
+        }
+
+        const sharedTasks = data.shared_tasks || [];
+
+        if (sharedTasks.length === 0) {
+          sharedTasksList.innerHTML = `
+            <div class="col-12 text-center py-5">
+              <i class="bi bi-inbox fs-1 text-muted"></i>
+              <p class="mt-3 text-muted">No tasks have been shared with you yet.</p>
+            </div>
+          `;
+          return;
+        }
+
+        sharedTasksList.innerHTML = '';
+
+        sharedTasks.forEach(item => {
+          const task = item.task;
+          const sharedBy = item.shared_by_name || item.shared_by_email;
+          const sharedAt = new Date(item.shared_at).toLocaleDateString();
+
+          const priorityClass = task.priority === 'High' ? 'danger' : 
+                               task.priority === 'Medium' ? 'warning' : 'success';
+          
+          const statusClass = task.status === 'Done' ? 'success' : 
+                             task.status === 'In Progress' ? 'info' : 'secondary';
+
+          const card = `
+            <div class="col-md-6 col-lg-4 mb-3">
+              <div class="card h-100 shadow-sm">
+                <div class="card-body">
+                  <h5 class="card-title">${task.title}</h5>
+                  <p class="card-text text-muted small">${task.description || 'No description'}</p>
+                  
+                  <div class="mb-2">
+                    <span class="badge bg-${priorityClass}">${task.priority || 'Medium'}</span>
+                    <span class="badge bg-${statusClass}">${task.status || 'To Do'}</span>
+                  </div>
+
+                  ${task.due_date ? `
+                    <p class="card-text small">
+                      <i class="bi bi-calendar-event"></i> Due: ${new Date(task.due_date).toLocaleDateString()}
+                    </p>
+                  ` : ''}
+
+                  <hr />
+                  <p class="card-text small text-muted">
+                    <i class="bi bi-person"></i> Shared by: <strong>${sharedBy}</strong><br />
+                    <i class="bi bi-clock"></i> On: ${sharedAt}
+                  </p>
+                </div>
+              </div>
+            </div>
+          `;
+
+          sharedTasksList.insertAdjacentHTML('beforeend', card);
+        });
+
+      } catch (err) {
+        console.error('Error loading shared tasks:', err);
+        sharedTasksList.innerHTML = `
+          <div class="col-12 text-center py-5">
+            <i class="bi bi-exclamation-triangle fs-1 text-danger"></i>
+            <p class="mt-3 text-danger">Failed to load shared tasks.</p>
+            <p class="text-muted">${err.message}</p>
+          </div>
+        `;
+      }
+    });
+  </script>
+</body>
+</html>
